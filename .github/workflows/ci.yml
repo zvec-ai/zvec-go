@@ -1,0 +1,304 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/main' || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ===========================================================================
+  # Source Mode: Build zvec from submodule and run full test suite
+  # ===========================================================================
+  source-test:
+    name: Source (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-arm64
+            runner: macos-15
+          - name: linux-x64
+            runner: ubuntu-24.04
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+          - name: windows-x64
+            runner: windows-2025
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: go.mod
+
+      # --- Unix build tools ---
+      - name: Set up Python (for CMake/Ninja)
+        if: runner.os != 'Windows'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Install build tools (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          python -m pip install --upgrade pip cmake==3.30.0 ninja==1.11.1
+          echo "$(python -c 'import site; print(site.USER_BASE)')/bin" >> $GITHUB_PATH
+        shell: bash
+
+      # --- Windows build tools ---
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install CMake and Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install cmake ninja -y
+          refreshenv
+        shell: cmd
+
+      # --- Build C-API library ---
+      - name: Build C-API library (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+          cd zvec
+          mkdir -p build && cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_C_BINDINGS=ON \
+            -G Ninja
+          cmake --build . -j$NPROC --target zvec_c_api
+        shell: bash
+
+      - name: Build C-API library (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd zvec
+          mkdir build -ErrorAction SilentlyContinue
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON
+          cmake --build . --config Release --target zvec_c_api -j $env:NUMBER_OF_PROCESSORS
+        shell: pwsh
+
+      - name: Verify C-API library (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "=== Built libraries ==="
+          ls -la zvec/build/lib/
+        shell: bash
+
+      - name: Verify C-API library (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "=== Built libraries ==="
+          Get-ChildItem -Recurse zvec/build/lib/ -ErrorAction SilentlyContinue
+          Get-ChildItem -Recurse zvec/build/bin/ -ErrorAction SilentlyContinue
+        shell: pwsh
+
+      # --- Add library to PATH (Windows) ---
+      - name: Add library to PATH (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $libDirs = @(
+            "${{ github.workspace }}\zvec\build\lib\Release",
+            "${{ github.workspace }}\zvec\build\lib",
+            "${{ github.workspace }}\zvec\build\bin\Release"
+          )
+          foreach ($dir in $libDirs) {
+            if (Test-Path $dir) {
+              echo "$dir" >> $env:GITHUB_PATH
+              Write-Host "Added to PATH: $dir"
+            }
+          }
+        shell: pwsh
+
+      # --- Run tests ---
+      - name: Run Go unit tests (Unix)
+        if: runner.os != 'Windows'
+        run: go test -tags "source integration" -count=1 -v ./... 2>&1
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go unit tests (Windows)
+        if: runner.os == 'Windows'
+        run: go test -tags "source integration" -count=1 -v ./...
+        shell: cmd
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go tests with race detector (Unix)
+        if: runner.os != 'Windows'
+        run: go test -tags "source integration" -race -count=1 ./... 2>&1
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go tests with race detector (Windows)
+        if: runner.os == 'Windows'
+        run: go test -tags "source integration" -race -count=1 ./...
+        shell: cmd
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go benchmarks (Unix)
+        if: runner.os != 'Windows'
+        run: go test -tags "source integration" -bench=. -benchmem -benchtime=1s -count=1 -run=^$ ./... 2>&1
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go benchmarks (Windows)
+        if: runner.os == 'Windows'
+        run: go test -tags "source integration" -bench=. -benchmem -benchtime=1s -count=1 -run=^$ ./...
+        shell: cmd
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go vet (Unix)
+        if: runner.os != 'Windows'
+        run: go vet -tags "source integration" ./...
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go vet (Windows)
+        if: runner.os == 'Windows'
+        run: go vet -tags "source integration" ./...
+        shell: cmd
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Check Go formatting
+        if: runner.os != 'Windows'
+        run: |
+          UNFORMATTED=$(find . -name '*.go' -not -path './zvec/*' | xargs gofmt -l 2>/dev/null)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "The following files are not formatted:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+          echo "All Go files are properly formatted"
+        shell: bash
+
+  # ===========================================================================
+  # Vendor Mode: Test with pre-built libraries from lib/ directory
+  # ===========================================================================
+  vendor-test:
+    name: Vendor (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-arm64
+            runner: macos-15
+            lib_subdir: darwin_arm64
+            lib_ext: dylib
+          - name: linux-x64
+            runner: ubuntu-24.04
+            lib_subdir: linux_amd64
+            lib_ext: so
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            lib_subdir: linux_arm64
+            lib_ext: so
+          - name: windows-x64
+            runner: windows-2025
+            lib_subdir: windows_amd64
+            lib_ext: dll
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: go.mod
+
+      - name: Verify vendor libraries exist (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          LIB_PATH="lib/${{ matrix.lib_subdir }}"
+          echo "=== Checking vendor libraries in $LIB_PATH ==="
+          if [ ! -d "$LIB_PATH" ] || [ -z "$(ls -A "$LIB_PATH" 2>/dev/null)" ]; then
+            echo "⚠ No vendor libraries found in $LIB_PATH — skipping vendor test"
+            echo "VENDOR_LIBS_AVAILABLE=false" >> $GITHUB_ENV
+          else
+            ls -la "$LIB_PATH/"
+            echo "VENDOR_LIBS_AVAILABLE=true" >> $GITHUB_ENV
+          fi
+        shell: bash
+
+      - name: Verify vendor libraries exist (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $libPath = "lib\${{ matrix.lib_subdir }}"
+          Write-Host "=== Checking vendor libraries in $libPath ==="
+          if (-not (Test-Path $libPath) -or (Get-ChildItem $libPath -ErrorAction SilentlyContinue).Count -eq 0) {
+            Write-Host "⚠ No vendor libraries found in $libPath — skipping vendor test"
+            echo "VENDOR_LIBS_AVAILABLE=false" >> $env:GITHUB_ENV
+          } else {
+            Get-ChildItem $libPath
+            echo "VENDOR_LIBS_AVAILABLE=true" >> $env:GITHUB_ENV
+          }
+        shell: pwsh
+
+      - name: Add vendor library to PATH (Windows)
+        if: runner.os == 'Windows' && env.VENDOR_LIBS_AVAILABLE == 'true'
+        run: |
+          $libPath = "${{ github.workspace }}\lib\${{ matrix.lib_subdir }}"
+          echo "$libPath" >> $env:GITHUB_PATH
+          Write-Host "Added to PATH: $libPath"
+        shell: pwsh
+
+      - name: Set library path (Unix)
+        if: runner.os != 'Windows' && env.VENDOR_LIBS_AVAILABLE == 'true'
+        run: |
+          LIB_PATH="${{ github.workspace }}/lib/${{ matrix.lib_subdir }}"
+          if [ "$(uname)" = "Darwin" ]; then
+            echo "DYLD_LIBRARY_PATH=$LIB_PATH:${DYLD_LIBRARY_PATH:-}" >> $GITHUB_ENV
+          else
+            echo "LD_LIBRARY_PATH=$LIB_PATH:${LD_LIBRARY_PATH:-}" >> $GITHUB_ENV
+          fi
+        shell: bash
+
+      - name: Run Go unit tests (vendor mode)
+        if: env.VENDOR_LIBS_AVAILABLE == 'true'
+        run: go test -tags integration -count=1 -v ./...
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Run Go tests with race detector (vendor mode)
+        if: env.VENDOR_LIBS_AVAILABLE == 'true'
+        run: go test -tags integration -race -count=1 ./...
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Skip notice
+        if: env.VENDOR_LIBS_AVAILABLE != 'true'
+        run: echo "⚠ Vendor libraries not available for ${{ matrix.name }}. Run 'make package-libs' on the target platform to generate them."
