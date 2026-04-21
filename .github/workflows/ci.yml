@@ -97,8 +97,8 @@ jobs:
           cd zvec
           mkdir build -ErrorAction SilentlyContinue
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON
-          cmake --build . --config Release --target zvec_c_api -j $env:NUMBER_OF_PROCESSORS
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON -G Ninja
+          cmake --build . --target zvec_c_api -j $env:NUMBER_OF_PROCESSORS
         shell: pwsh
 
       - name: Verify C-API library (Unix)
@@ -134,59 +134,69 @@ jobs:
         shell: pwsh
 
       # --- Run tests ---
+      # Note: Use explicit package list instead of ./... to exclude zvec/ submodule
+      # which contains Go files (e.g. antlr4) with unrelated dependencies.
       - name: Run Go unit tests (Unix)
         if: runner.os != 'Windows'
-        run: go test -tags "source integration" -count=1 -v ./... 2>&1
+        run: go test -tags "source integration" -count=1 -v $(go list -tags "source integration" ./... | grep -v '/zvec/') 2>&1
         shell: bash
         env:
           CGO_ENABLED: "1"
 
       - name: Run Go unit tests (Windows)
         if: runner.os == 'Windows'
-        run: go test -tags "source integration" -count=1 -v ./...
-        shell: cmd
+        run: |
+          $pkgs = go list -tags "source integration" ./... 2>&1 | Where-Object { $_ -notmatch '/zvec/' }
+          go test -tags "source integration" -count=1 -v $pkgs
+        shell: pwsh
         env:
           CGO_ENABLED: "1"
 
       - name: Run Go tests with race detector (Unix)
         if: runner.os != 'Windows'
-        run: go test -tags "source integration" -race -count=1 ./... 2>&1
+        run: go test -tags "source integration" -race -count=1 $(go list -tags "source integration" ./... | grep -v '/zvec/') 2>&1
         shell: bash
         env:
           CGO_ENABLED: "1"
 
       - name: Run Go tests with race detector (Windows)
         if: runner.os == 'Windows'
-        run: go test -tags "source integration" -race -count=1 ./...
-        shell: cmd
+        run: |
+          $pkgs = go list -tags "source integration" ./... 2>&1 | Where-Object { $_ -notmatch '/zvec/' }
+          go test -tags "source integration" -race -count=1 $pkgs
+        shell: pwsh
         env:
           CGO_ENABLED: "1"
 
       - name: Run Go benchmarks (Unix)
         if: runner.os != 'Windows'
-        run: go test -tags "source integration" -bench=. -benchmem -benchtime=1s -count=1 -run=^$ ./... 2>&1
+        run: go test -tags "source integration" -bench=. -benchmem -benchtime=1s -count=1 -run=^$ $(go list -tags "source integration" ./... | grep -v '/zvec/') 2>&1
         shell: bash
         env:
           CGO_ENABLED: "1"
 
       - name: Run Go benchmarks (Windows)
         if: runner.os == 'Windows'
-        run: go test -tags "source integration" -bench=. -benchmem -benchtime=1s -count=1 -run=^$ ./...
-        shell: cmd
+        run: |
+          $pkgs = go list -tags "source integration" ./... 2>&1 | Where-Object { $_ -notmatch '/zvec/' }
+          go test -tags "source integration" -bench=. -benchmem -benchtime=1s -count=1 -run=^$ $pkgs
+        shell: pwsh
         env:
           CGO_ENABLED: "1"
 
       - name: Run Go vet (Unix)
         if: runner.os != 'Windows'
-        run: go vet -tags "source integration" ./...
+        run: go vet -tags "source integration" $(go list -tags "source integration" ./... | grep -v '/zvec/')
         shell: bash
         env:
           CGO_ENABLED: "1"
 
       - name: Run Go vet (Windows)
         if: runner.os == 'Windows'
-        run: go vet -tags "source integration" ./...
-        shell: cmd
+        run: |
+          $pkgs = go list -tags "source integration" ./... 2>&1 | Where-Object { $_ -notmatch '/zvec/' }
+          go vet -tags "source integration" $pkgs
+        shell: pwsh
         env:
           CGO_ENABLED: "1"
 

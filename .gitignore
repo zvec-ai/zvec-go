@@ -51,3 +51,9 @@ yarn-error.log*
 allure-*
 
 !build_android.sh
+
+# zvec sub-directory
+# The zvec directory is managed as a git submodule.
+# Ignore its build artifacts:
+zvec/build/
+zvec/thirdparty/
