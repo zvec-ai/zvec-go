@@ -4,6 +4,7 @@ package zvec
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 )
 
@@ -201,7 +202,7 @@ func BenchmarkCollectionInsert(b *testing.B) {
 	b.ReportAllocs()
 
 	tmpDir := b.TempDir()
-	path := tmpDir + "/col"
+	path := filepath.Join(tmpDir, "col")
 	schema := benchmarkCreateSchema(128)
 	defer schema.Destroy()
 
@@ -232,7 +233,7 @@ func BenchmarkCollectionInsertBatch10(b *testing.B) {
 	b.ReportAllocs()
 
 	tmpDir := b.TempDir()
-	path := tmpDir + "/col"
+	path := filepath.Join(tmpDir, "col")
 	schema := benchmarkCreateSchema(128)
 	defer schema.Destroy()
 
@@ -272,7 +273,7 @@ func BenchmarkCollectionInsertBatch100(b *testing.B) {
 	b.ReportAllocs()
 
 	tmpDir := b.TempDir()
-	path := tmpDir + "/col"
+	path := filepath.Join(tmpDir, "col")
 	schema := benchmarkCreateSchema(128)
 	defer schema.Destroy()
 
@@ -312,7 +313,7 @@ func BenchmarkCollectionQuery(b *testing.B) {
 	b.ReportAllocs()
 
 	tmpDir := b.TempDir()
-	path := tmpDir + "/col"
+	path := filepath.Join(tmpDir, "col")
 	schema := benchmarkCreateSchema(128)
 	defer schema.Destroy()
 
@@ -364,7 +365,7 @@ func BenchmarkCollectionFetch(b *testing.B) {
 	b.ReportAllocs()
 
 	tmpDir := b.TempDir()
-	path := tmpDir + "/col"
+	path := filepath.Join(tmpDir, "col")
 	schema := benchmarkCreateSchema(128)
 	defer schema.Destroy()
 
