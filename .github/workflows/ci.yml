@@ -73,9 +73,8 @@ jobs:
       - name: Install CMake and Ninja (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install cmake ninja -y
-          refreshenv
-        shell: cmd
+          pip install cmake==3.30.0 ninja==1.11.1
+        shell: pwsh
 
       # --- Build C-API library ---
       - name: Build C-API library (Unix)
