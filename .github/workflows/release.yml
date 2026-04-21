@@ -1,0 +1,338 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v0.3.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  # ===========================================================================
+  # Build pre-compiled libraries for all supported platforms
+  # ===========================================================================
+  build-libs:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: darwin-arm64
+            runner: macos-15
+            platform: darwin_arm64
+            lib_name: libzvec_c_api.dylib
+            artifact_name: zvec-libs-darwin-arm64
+          - name: linux-x64
+            runner: ubuntu-24.04
+            platform: linux_amd64
+            lib_name: libzvec_c_api.so
+            artifact_name: zvec-libs-linux-x64
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            platform: linux_arm64
+            lib_name: libzvec_c_api.so
+            artifact_name: zvec-libs-linux-arm64
+          - name: windows-x64
+            runner: windows-2025
+            platform: windows_amd64
+            lib_name: zvec_c_api.dll
+            artifact_name: zvec-libs-windows-x64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: go.mod
+
+      # --- Unix build tools ---
+      - name: Set up Python (for CMake/Ninja)
+        if: runner.os != 'Windows'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Install build tools (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          python -m pip install --upgrade pip cmake==3.30.0 ninja==1.11.1
+          echo "$(python -c 'import site; print(site.USER_BASE)')/bin" >> $GITHUB_PATH
+        shell: bash
+
+      # --- Windows build tools ---
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install CMake and Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install cmake ninja -y
+          refreshenv
+        shell: cmd
+
+      # --- Build C-API library ---
+      - name: Build C-API library (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+          cd zvec
+          mkdir -p build && cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_C_BINDINGS=ON \
+            -G Ninja
+          cmake --build . -j$NPROC --target zvec_c_api
+        shell: bash
+
+      - name: Build C-API library (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd zvec
+          mkdir build -ErrorAction SilentlyContinue
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON
+          cmake --build . --config Release --target zvec_c_api -j $env:NUMBER_OF_PROCESSORS
+        shell: pwsh
+
+      # --- Package libraries ---
+      - name: Package libraries (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          PLATFORM="${{ matrix.platform }}"
+          mkdir -p staging/$PLATFORM staging/include/zvec
+
+          # Copy shared library
+          cp zvec/build/lib/${{ matrix.lib_name }} staging/$PLATFORM/
+          echo "✓ Copied ${{ matrix.lib_name }}"
+
+          # Copy header
+          cp zvec/src/include/zvec/c_api.h staging/include/zvec/
+          echo "✓ Copied c_api.h"
+
+          # Show results
+          ls -la staging/$PLATFORM/
+          du -h staging/$PLATFORM/${{ matrix.lib_name }}
+        shell: bash
+
+      - name: Package libraries (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $platform = "${{ matrix.platform }}"
+          New-Item -ItemType Directory -Force -Path "staging/$platform"
+          New-Item -ItemType Directory -Force -Path "staging/include/zvec"
+
+          # Find and copy DLL
+          $dllPaths = @(
+            "zvec/build/lib/Release/zvec_c_api.dll",
+            "zvec/build/lib/zvec_c_api.dll",
+            "zvec/build/bin/Release/zvec_c_api.dll"
+          )
+          $dllFound = $false
+          foreach ($path in $dllPaths) {
+            if (Test-Path $path) {
+              Copy-Item $path "staging/$platform/"
+              Write-Host "✓ Copied DLL from $path"
+              $dllFound = $true
+              break
+            }
+          }
+          if (-not $dllFound) {
+            Write-Error "DLL not found in any expected location"
+            Get-ChildItem -Recurse zvec/build/ -Filter "*.dll"
+            exit 1
+          }
+
+          # Find and copy import library (.lib)
+          $libPaths = @(
+            "zvec/build/lib/Release/zvec_c_api.lib",
+            "zvec/build/lib/zvec_c_api.lib"
+          )
+          foreach ($path in $libPaths) {
+            if (Test-Path $path) {
+              Copy-Item $path "staging/$platform/"
+              Write-Host "✓ Copied import library from $path"
+              break
+            }
+          }
+
+          # Copy header
+          Copy-Item "zvec/src/include/zvec/c_api.h" "staging/include/zvec/"
+          Write-Host "✓ Copied c_api.h"
+
+          # Show results
+          Get-ChildItem "staging/$platform/"
+        shell: pwsh
+
+      # --- Verify Go build with vendor libs ---
+      - name: Verify Go build with vendor libs (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Copy staged libs to lib/ for Go build verification
+          PLATFORM="${{ matrix.platform }}"
+          mkdir -p lib/$PLATFORM lib/include/zvec
+          cp staging/$PLATFORM/* lib/$PLATFORM/
+          cp staging/include/zvec/c_api.h lib/include/zvec/
+
+          # Verify Go build compiles (vendor mode, no source tag)
+          CGO_ENABLED=1 go build ./...
+          echo "✓ Go build succeeded with vendor libraries"
+        shell: bash
+
+      - name: Verify Go build with vendor libs (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $platform = "${{ matrix.platform }}"
+          New-Item -ItemType Directory -Force -Path "lib/$platform"
+          New-Item -ItemType Directory -Force -Path "lib/include/zvec"
+          Copy-Item "staging/$platform/*" "lib/$platform/"
+          Copy-Item "staging/include/zvec/c_api.h" "lib/include/zvec/"
+
+          # Add DLL to PATH for runtime
+          $libPath = "${{ github.workspace }}\lib\$platform"
+          $env:PATH = "$libPath;$env:PATH"
+
+          # Verify Go build compiles (vendor mode, no source tag)
+          $env:CGO_ENABLED = "1"
+          go build ./...
+          Write-Host "✓ Go build succeeded with vendor libraries"
+        shell: pwsh
+
+      # --- Create archive ---
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd staging
+          tar -czf ../${{ matrix.artifact_name }}.tar.gz .
+          cd ..
+          sha256sum ${{ matrix.artifact_name }}.tar.gz > ${{ matrix.artifact_name }}.tar.gz.sha256
+          echo "=== Archive ==="
+          ls -la ${{ matrix.artifact_name }}.tar.gz
+          cat ${{ matrix.artifact_name }}.tar.gz.sha256
+        shell: bash
+
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd staging
+          Compress-Archive -Path * -DestinationPath ..\${{ matrix.artifact_name }}.zip
+          cd ..
+          $hash = (Get-FileHash "${{ matrix.artifact_name }}.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.artifact_name }}.zip" | Out-File -Encoding ascii "${{ matrix.artifact_name }}.zip.sha256"
+          Write-Host "=== Archive ==="
+          Get-ChildItem "${{ matrix.artifact_name }}.zip"
+          Get-Content "${{ matrix.artifact_name }}.zip.sha256"
+        shell: pwsh
+
+      # --- Upload artifact ---
+      - name: Upload artifact (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.artifact_name }}.tar.gz
+            ${{ matrix.artifact_name }}.tar.gz.sha256
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.artifact_name }}.zip
+            ${{ matrix.artifact_name }}.zip.sha256
+
+  # ===========================================================================
+  # Create GitHub Release with all platform libraries
+  # ===========================================================================
+  release:
+    name: Create Release
+    needs: build-libs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: List artifacts
+        run: |
+          echo "=== Downloaded artifacts ==="
+          find ./artifacts -type f | sort
+        shell: bash
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          cat > release-notes.md << 'NOTES_EOF'
+          ## zvec-go $TAG
+
+          ### Pre-built Libraries
+
+          Download the archive for your platform and extract it to the `lib/` directory:
+
+          | Platform | Archive | Architecture |
+          |----------|---------|--------------|
+          | **macOS** | `zvec-libs-darwin-arm64.tar.gz` | Apple Silicon (M1/M2/M3/M4) |
+          | **Linux** | `zvec-libs-linux-x64.tar.gz` | x86_64 |
+          | **Linux** | `zvec-libs-linux-arm64.tar.gz` | ARM64 (aarch64) |
+          | **Windows** | `zvec-libs-windows-x64.zip` | x86_64 |
+
+          ### Quick Start
+
+          ```bash
+          # Install zvec-go
+          go get github.com/zvec-ai/zvec-go
+
+          # Build with cgo
+          CGO_ENABLED=1 go build ./...
+          ```
+
+          ### Checksums
+
+          SHA-256 checksums are provided in `.sha256` files alongside each archive.
+          NOTES_EOF
+        shell: bash
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-rc') || contains(steps.tag.outputs.tag, '-beta') || contains(steps.tag.outputs.tag, '-alpha') }}
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.tar.gz.sha256
+            artifacts/**/*.zip
+            artifacts/**/*.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

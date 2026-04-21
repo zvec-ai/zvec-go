@@ -3,7 +3,9 @@
 bazel-*
 build*
 bin/*
-lib/*
+# lib/* — but keep vendor libraries for zvec-go
+# lib/include/ and lib/{platform}/ are tracked (vendor mode)
+# Use Git LFS for large binary files (see .gitattributes)
 var/*
 venv*
 tests/integration/conf/*
