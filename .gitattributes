@@ -1,7 +1,6 @@
-# Pre-built vendor libraries are committed directly (no LFS)
-# Binary files - no line ending conversion
-lib/darwin_arm64/*.dylib -text
-lib/linux_amd64/*.so -text
-lib/linux_arm64/*.so -text
-lib/windows_amd64/*.dll -text
-lib/windows_amd64/*.lib -text
+# Git LFS tracking for pre-built vendor libraries
+lib/darwin_arm64/*.dylib filter=lfs diff=lfs merge=lfs -text
+lib/linux_amd64/*.so filter=lfs diff=lfs merge=lfs -text
+lib/linux_arm64/*.so filter=lfs diff=lfs merge=lfs -text
+lib/windows_amd64/*.dll filter=lfs diff=lfs merge=lfs -text
+lib/windows_amd64/*.lib filter=lfs diff=lfs merge=lfs -text
