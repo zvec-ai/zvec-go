@@ -9,13 +9,3 @@ updates:
       - "submodule-update"
     commit-message:
       prefix: "chore(deps)"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "ci"
-    commit-message:
-      prefix: "ci(deps)"

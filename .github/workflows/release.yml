@@ -287,6 +287,56 @@ jobs:
           find ./artifacts -type f | sort
         shell: bash
 
+      - name: Extract libraries to lib/
+        run: |
+          mkdir -p lib/darwin_arm64 lib/linux_amd64 lib/linux_arm64 lib/windows_amd64 lib/include/zvec
+
+          # Darwin ARM64
+          tar -xzf artifacts/zvec-libs-darwin-arm64/zvec-libs-darwin-arm64.tar.gz -C /tmp/darwin
+          cp /tmp/darwin/darwin_arm64/* lib/darwin_arm64/
+          cp /tmp/darwin/include/zvec/* lib/include/zvec/
+
+          # Linux x64
+          tar -xzf artifacts/zvec-libs-linux-x64/zvec-libs-linux-x64.tar.gz -C /tmp/linux
+          cp /tmp/linux/linux_amd64/* lib/linux_amd64/
+
+          # Linux ARM64
+          tar -xzf artifacts/zvec-libs-linux-arm64/zvec-libs-linux-arm64.tar.gz -C /tmp/linux-arm64
+          cp /tmp/linux-arm64/linux_arm64/* lib/linux_arm64/
+
+          # Windows x64
+          unzip -q artifacts/zvec-libs-windows-x64/zvec-libs-windows-x64.zip -d /tmp/windows
+          cp /tmp/windows/windows_amd64/* lib/windows_amd64/
+
+          echo "=== Extracted libraries ==="
+          find lib/ -type f | sort
+        shell: bash
+
+      - name: Commit and push pre-built libraries
+        run: |
+          # Setup Git LFS
+          git lfs install
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Checkout default branch
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          git fetch origin "$DEFAULT_BRANCH"
+          git checkout "$DEFAULT_BRANCH"
+
+          # Stage and commit
+          git add lib/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            TAG="${{ steps.tag.outputs.tag }}"
+            git commit -m "chore: update pre-built libraries for $TAG"
+            git push origin "$DEFAULT_BRANCH"
+          fi
+        shell: bash
+
       - name: Generate release notes
         id: notes
         run: |
