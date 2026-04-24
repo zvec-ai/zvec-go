@@ -103,7 +103,7 @@ jobs:
           cd zvec
           mkdir build -ErrorAction SilentlyContinue
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build . --config Release --target zvec_c_api -j $env:NUMBER_OF_PROCESSORS
         shell: pwsh
 
