@@ -76,12 +76,12 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install CMake and Ninja (Windows)
+      - name: Install CMake 3.30 and Ninja (Windows)
         if: runner.os == 'Windows'
-        run: |
-          choco install cmake ninja -y
-          refreshenv
-        shell: cmd
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: '3.30.0'
+          ninjaVersion: '1.11.1'
 
       # --- Build C-API library ---
       - name: Build C-API library (Unix)
@@ -103,7 +103,7 @@ jobs:
           cd zvec
           mkdir build -ErrorAction SilentlyContinue
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON
           cmake --build . --config Release --target zvec_c_api -j $env:NUMBER_OF_PROCESSORS
         shell: pwsh
 
