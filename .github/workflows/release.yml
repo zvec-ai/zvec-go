@@ -187,7 +187,8 @@ jobs:
           cp staging/include/zvec/c_api.h lib/include/zvec/
 
           # Verify Go build compiles (vendor mode, no source tag)
-          CGO_ENABLED=1 go build ./...
+          # Use "go build ." instead of "./..." to avoid scanning zvec submodule
+          CGO_ENABLED=1 go build .
           echo "✓ Go build succeeded with vendor libraries"
         shell: bash
 
@@ -205,8 +206,9 @@ jobs:
           $env:PATH = "$libPath;$env:PATH"
 
           # Verify Go build compiles (vendor mode, no source tag)
+          # Use "go build ." instead of "./..." to avoid scanning zvec submodule
           $env:CGO_ENABLED = "1"
-          go build ./...
+          go build .
           Write-Host "✓ Go build succeeded with vendor libraries"
         shell: pwsh
 
