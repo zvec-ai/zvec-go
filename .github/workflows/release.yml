@@ -320,9 +320,6 @@ jobs:
 
       - name: Commit and push pre-built libraries
         run: |
-          # Setup Git LFS
-          git lfs install
-
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -332,7 +329,7 @@ jobs:
           git fetch origin "$DEFAULT_BRANCH"
           git checkout "$DEFAULT_BRANCH"
 
-          # Stage and commit
+          # Stage and commit (binary files tracked directly, no LFS)
           git add lib/
           if git diff --cached --quiet; then
             echo "No changes to commit"
