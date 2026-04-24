@@ -294,19 +294,23 @@ jobs:
           mkdir -p lib/darwin_arm64 lib/linux_amd64 lib/linux_arm64 lib/windows_amd64 lib/include/zvec
 
           # Darwin ARM64
+          mkdir -p /tmp/darwin
           tar -xzf artifacts/zvec-libs-darwin-arm64/zvec-libs-darwin-arm64.tar.gz -C /tmp/darwin
           cp /tmp/darwin/darwin_arm64/* lib/darwin_arm64/
           cp /tmp/darwin/include/zvec/* lib/include/zvec/
 
           # Linux x64
+          mkdir -p /tmp/linux
           tar -xzf artifacts/zvec-libs-linux-x64/zvec-libs-linux-x64.tar.gz -C /tmp/linux
           cp /tmp/linux/linux_amd64/* lib/linux_amd64/
 
           # Linux ARM64
+          mkdir -p /tmp/linux-arm64
           tar -xzf artifacts/zvec-libs-linux-arm64/zvec-libs-linux-arm64.tar.gz -C /tmp/linux-arm64
           cp /tmp/linux-arm64/linux_arm64/* lib/linux_arm64/
 
           # Windows x64
+          mkdir -p /tmp/windows
           unzip -q artifacts/zvec-libs-windows-x64/zvec-libs-windows-x64.zip -d /tmp/windows
           cp /tmp/windows/windows_amd64/* lib/windows_amd64/
 
