@@ -21,6 +21,7 @@ jobs:
   build-libs:
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
@@ -34,8 +35,14 @@ jobs:
             artifact_name: zvec-libs-darwin-arm64
             env:
               MACOSX_DEPLOYMENT_TARGET: '13.0'
+          # - name: linux-x64
+          #   runner: ubuntu-24.04
+          #   platform: linux_amd64
+          #   lib_name: libzvec_c_api.so
+          #   artifact_name: zvec-libs-linux-x64
           - name: linux-x64
-            runner: ubuntu-24.04
+            runner: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_28_x86_64
             platform: linux_amd64
             lib_name: libzvec_c_api.so
             artifact_name: zvec-libs-linux-x64
@@ -63,7 +70,7 @@ jobs:
 
       # --- Unix build tools ---
       - name: Set up Python (for CMake/Ninja)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && matrix.container == ''
         uses: actions/setup-python@v6
         with:
           python-version: '3.10'
@@ -71,6 +78,13 @@ jobs:
       - name: Install build tools (Unix)
         if: runner.os != 'Windows'
         run: |
+          if [ -d /opt/python/cp310-cp310 ]; then
+            export PATH="/opt/python/cp310-cp310/bin:$PATH"
+          fi
+          # Install system build tools for manylinux/EL-based containers
+          if command -v yum &> /dev/null; then
+            yum install -y ninja-build gcc gcc-c++ || true
+          fi
           python -m pip install --upgrade pip cmake==3.30.0 ninja==1.11.1
           echo "$(python -c 'import site; print(site.USER_BASE)')/bin" >> $GITHUB_PATH
         shell: bash
@@ -100,6 +114,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_C_BINDINGS=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0} \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -G Ninja
           cmake --build . -j$NPROC --target zvec_c_api
         shell: bash
@@ -321,13 +336,21 @@ jobs:
           ### Quick Start
 
           ```bash
-          # 1. Get the package
-          go get github.com/zvec-ai/zvec-go
+          # 1. clone zvec-go source code
+          git clone --recursive https://github.com/zvec-ai/zvec-go.git
+          cd zvec-go
 
-          # 2. Download pre-built library for your platform
-          go generate github.com/zvec-ai/zvec-go
+          # 2. Download corresponding platform pre-built library.
+          #    If linking fails due to GLIBC incompatibility, build from source instead:
+          #    make build-zvec
+          go run ./cmd/download-libs -version v0.3.1
 
-          # 3. Build with cgo
+          # 3. Back to your project, replace with local source code
+          cd /path/to/project
+          go mod edit -replace github.com/zvec-ai/zvec-go=/path/to/zvec-go
+          go mod tidy
+
+          # 4. Build (you can now build your project)
           CGO_ENABLED=1 go build .
           ```
 

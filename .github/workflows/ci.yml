@@ -199,7 +199,7 @@ jobs:
       - name: Check Go formatting
         if: runner.os != 'Windows'
         run: |
-          UNFORMATTED=$(find . -name '*.go' -not -path './zvec/*' | xargs gofmt -l 2>/dev/null)
+          UNFORMATTED=$(find . -path './zvec' -prune -o -name '*.go' -print | xargs gofmt -l 2>/dev/null)
           if [ -n "$UNFORMATTED" ]; then
             echo "The following files are not formatted:"
             echo "$UNFORMATTED"

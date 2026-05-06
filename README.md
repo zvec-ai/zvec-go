@@ -64,6 +64,11 @@ cd zvec-go
 #    (downloads from GitHub Releases, extracts to lib/)
 go run ./cmd/download-libs -version v0.3.1
 
+# Use in your project with replace directive
+# In your project's go.mod:
+#   require github.com/zvec-ai/zvec-go v0.3.1
+#   replace github.com/zvec-ai/zvec-go => /path/to/zvec-go
+
 # 3. Build (cgo is required)
 CGO_ENABLED=1 go build .
 ```
@@ -79,6 +84,8 @@ go get github.com/zvec-ai/zvec-go
 #    Extract to your project's lib/ directory
 
 # 3. Build (cgo is required)
+CGO_CFLAGS="-I$(pwd)/lib/include" \
+CGO_LDFLAGS="-L$(pwd)/lib/darwin_arm64 -lzvec_c_api -Wl,-rpath,$(pwd)/lib/darwin_arm64" \
 CGO_ENABLED=1 go build .
 ```
 

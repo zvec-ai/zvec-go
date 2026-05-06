@@ -64,6 +64,11 @@ cd zvec-go
 #    （从 GitHub Releases 下载，解压到 lib/ 目录）
 go run ./cmd/download-libs -version v0.3.1
 
+# 在您的项目中使用 replace 指令
+# 在您项目的 go.mod 中：
+#   require github.com/zvec-ai/zvec-go v0.3.1
+#   replace github.com/zvec-ai/zvec-go => /path/to/zvec-go
+
 # 3. 构建（需要 cgo）
 CGO_ENABLED=1 go build .
 ```
@@ -79,6 +84,8 @@ go get github.com/zvec-ai/zvec-go
 #    解压到您项目的 lib/ 目录
 
 # 3. 构建（需要 cgo）
+CGO_CFLAGS="-I$(pwd)/lib/include" \
+CGO_LDFLAGS="-L$(pwd)/lib/darwin_arm64 -lzvec_c_api -Wl,-rpath,$(pwd)/lib/darwin_arm64" \
 CGO_ENABLED=1 go build .
 ```
 
