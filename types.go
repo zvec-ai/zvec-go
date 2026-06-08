@@ -1,5 +1,10 @@
 package zvec
 
+/*
+#include "zvec/c_api.h"
+*/
+import "C"
+
 // DataType represents the data type of a field.
 type DataType uint32
 
@@ -35,6 +40,10 @@ const (
 	DataTypeArrayDouble      DataType = 48
 )
 
+func (d DataType) String() string {
+	return C.GoString(C.zvec_data_type_to_string(C.zvec_data_type_t(d)))
+}
+
 // IndexType represents the type of index.
 type IndexType uint32
 
@@ -44,7 +53,12 @@ const (
 	IndexTypeIVF       IndexType = 2
 	IndexTypeFlat      IndexType = 3
 	IndexTypeInvert    IndexType = 10
+	IndexTypeFTS       IndexType = 11
 )
+
+func (i IndexType) String() string {
+	return C.GoString(C.zvec_index_type_to_string(C.zvec_index_type_t(i)))
+}
 
 // MetricType represents the distance metric type.
 type MetricType uint32
@@ -57,6 +71,23 @@ const (
 	MetricTypeMIPSL2    MetricType = 4
 )
 
+func (m MetricType) String() string {
+	switch m {
+	case MetricTypeUndefined:
+		return "Undefined"
+	case MetricTypeL2:
+		return "L2"
+	case MetricTypeIP:
+		return "IP"
+	case MetricTypeCosine:
+		return "Cosine"
+	case MetricTypeMIPSL2:
+		return "MIPSL2"
+	default:
+		return "Unknown"
+	}
+}
+
 // QuantizeType represents the quantization type.
 type QuantizeType uint32
 
@@ -66,6 +97,21 @@ const (
 	QuantizeTypeInt8      QuantizeType = 2
 	QuantizeTypeInt4      QuantizeType = 3
 )
+
+func (q QuantizeType) String() string {
+	switch q {
+	case QuantizeTypeUndefined:
+		return "Undefined"
+	case QuantizeTypeFP16:
+		return "FP16"
+	case QuantizeTypeInt8:
+		return "Int8"
+	case QuantizeTypeInt4:
+		return "Int4"
+	default:
+		return "Unknown"
+	}
+}
 
 // LogLevel represents the log level.
 type LogLevel int
@@ -78,6 +124,23 @@ const (
 	LogLevelFatal LogLevel = 4
 )
 
+func (l LogLevel) String() string {
+	switch l {
+	case LogLevelDebug:
+		return "Debug"
+	case LogLevelInfo:
+		return "Info"
+	case LogLevelWarn:
+		return "Warn"
+	case LogLevelError:
+		return "Error"
+	case LogLevelFatal:
+		return "Fatal"
+	default:
+		return "Unknown"
+	}
+}
+
 // DocOperator represents the document operation type.
 type DocOperator int
 
@@ -87,3 +150,18 @@ const (
 	DocOpUpsert DocOperator = 2
 	DocOpDelete DocOperator = 3
 )
+
+func (d DocOperator) String() string {
+	switch d {
+	case DocOpInsert:
+		return "Insert"
+	case DocOpUpdate:
+		return "Update"
+	case DocOpUpsert:
+		return "Upsert"
+	case DocOpDelete:
+		return "Delete"
+	default:
+		return "Unknown"
+	}
+}

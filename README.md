@@ -150,12 +150,14 @@ func main() {
 
     // Add an ID field (primary key, with invert index)
     idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
-    idField.SetIndexParams(zvec.NewInvertIndexParams(true, false))
+    invertParams, _ := zvec.NewInvertIndexParams(true, false)
+    idField.SetIndexParams(invertParams)
     schema.AddField(idField)
 
     // Add a vector field (with HNSW index)
     embField := zvec.NewFieldSchema("embedding", zvec.DataTypeVectorFP32, false, 4)
-    embField.SetIndexParams(zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200))
+    hnswParams, _ := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+    embField.SetIndexParams(hnswParams)
     schema.AddField(embField)
 
     // Create and open a collection
@@ -174,7 +176,7 @@ func main() {
     doc.Destroy()
 
     // Vector query
-    query := zvec.NewVectorQuery()
+    query := zvec.NewSearchQuery()
     query.SetFieldName("embedding")
     query.SetQueryVector([]float32{0.4, 0.3, 0.3, 0.1})
     query.SetTopK(10)
@@ -214,6 +216,7 @@ func main() {
 | `NewIVFIndexParams(metricType, nlist, nIters, useSoar)` | Create IVF index parameters |
 | `NewFlatIndexParams(metricType)` | Create Flat index parameters |
 | `NewInvertIndexParams(enable, wildcard)` | Create invert index parameters |
+| `NewFTSIndexParams(tokenizer, filters, extra)` | Create FTS index parameters |
 | `SetIndexParams(params)` | Set field index parameters |
 
 ### Collection Operations
@@ -269,7 +272,7 @@ func main() {
 
 | API | Description |
 |-----|-------------|
-| `NewVectorQuery()` | Create a vector query object |
+| `NewSearchQuery()` | Create a search query object |
 | `SetFieldName(name)` | Set the query field name |
 | `SetQueryVector(vector)` | Set the query vector |
 | `SetTopK(k)` | Set the number of results to return |
@@ -278,9 +281,32 @@ func main() {
 | `SetIncludeVector(include)` | Whether to include vector data |
 | `SetIncludeDocID(include)` | Whether to include document ID |
 | `Query(query)` | Execute a query |
-| `GroupByVectorQuery(query)` | Group-by vector query |
-| `Fetch(pks)` | Fetch documents by primary keys |
+| `GroupBySearchQuery(query)` | Group-by search query |
+| `Fetch(pks, opts)` | Fetch documents by primary keys |
+| `MultiQuery(query)` | Execute a multi-query search |
 | `FreeDocs(docs)` | Free query result memory |
+
+### FTS (Full-Text Search)
+
+| API | Description |
+|-----|-------------|
+| `NewFTS()` | Create an FTS query payload |
+| `SetQueryString(query)` | Set FTS boolean/advanced query expression |
+| `SetMatchString(match)` | Set FTS natural-language match string |
+| `NewFTSQueryParams(op)` | Create FTS query parameters |
+| `SearchQuery.SetFTS(fts)` | Attach FTS payload to a search query |
+| `SearchQuery.SetFTSParams(params)` | Set FTS query parameters |
+
+### Multi-Query & Reranking
+
+| API | Description |
+|-----|-------------|
+| `NewMultiQuery()` | Create a multi-query combining sub-queries |
+| `AddSubQuery(sub)` | Add a sub-query (copied) |
+| `SetReranker(reranker)` | Set reranker strategy |
+| `NewSubQuery()` | Create a sub-query |
+| `NewRRFReranker(rankConstant)` | Create an RRF reranker |
+| `NewWeightedReranker(weights)` | Create a weighted reranker |
 
 ### Data Types
 
@@ -332,6 +358,7 @@ The project provides rich example code to help you get started quickly:
 - **examples/collection_management** — Collection management, showing creation, opening, optimization, and more
 - **examples/error_handling** — Error handling example, showing how to properly handle various error scenarios
 - **examples/configuration** — Global configuration example, demonstrating memory limits, thread counts, and other options
+- **examples/fts_query** — Full-Text Search example, demonstrating FTS index creation, text insertion, and FTS queries
 
 Run an example:
 

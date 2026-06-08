@@ -101,18 +101,18 @@ func TestFlatQueryParamsDestroy(t *testing.T) {
 	params.Destroy()
 }
 
-func TestNewVectorQuery(t *testing.T) {
-	query := NewVectorQuery()
+func TestNewSearchQuery(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	query.Destroy()
 }
 
-func TestVectorQueryFieldName(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQueryFieldName(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -126,10 +126,10 @@ func TestVectorQueryFieldName(t *testing.T) {
 	}
 }
 
-func TestVectorQueryTopK(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQueryTopK(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -143,10 +143,10 @@ func TestVectorQueryTopK(t *testing.T) {
 	}
 }
 
-func TestVectorQuerySetQueryVector(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQuerySetQueryVector(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -157,10 +157,10 @@ func TestVectorQuerySetQueryVector(t *testing.T) {
 	}
 }
 
-func TestVectorQuerySetQueryVectorEmpty(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQuerySetQueryVectorEmpty(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -171,10 +171,10 @@ func TestVectorQuerySetQueryVectorEmpty(t *testing.T) {
 	}
 }
 
-func TestVectorQueryFilter(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQueryFilter(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -189,10 +189,10 @@ func TestVectorQueryFilter(t *testing.T) {
 	}
 }
 
-func TestVectorQueryIncludeVector(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQueryIncludeVector(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -206,10 +206,10 @@ func TestVectorQueryIncludeVector(t *testing.T) {
 	}
 }
 
-func TestVectorQueryIncludeDocID(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQueryIncludeDocID(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -223,10 +223,10 @@ func TestVectorQueryIncludeDocID(t *testing.T) {
 	}
 }
 
-func TestVectorQueryOutputFields(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQueryOutputFields(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -237,15 +237,15 @@ func TestVectorQueryOutputFields(t *testing.T) {
 	}
 }
 
-func TestVectorQuerySetHNSWParams(t *testing.T) {
+func TestSearchQuerySetHNSWParams(t *testing.T) {
 	params := NewHNSWQueryParams(100, 0.5, false, false)
 	if params == nil {
 		t.Fatal("NewHNSWQueryParams returned nil")
 	}
 
-	query := NewVectorQuery()
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -260,15 +260,15 @@ func TestVectorQuerySetHNSWParams(t *testing.T) {
 	}
 }
 
-func TestVectorQuerySetIVFParams(t *testing.T) {
+func TestSearchQuerySetIVFParams(t *testing.T) {
 	params := NewIVFQueryParams(10, false, 1.0)
 	if params == nil {
 		t.Fatal("NewIVFQueryParams returned nil")
 	}
 
-	query := NewVectorQuery()
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -283,15 +283,15 @@ func TestVectorQuerySetIVFParams(t *testing.T) {
 	}
 }
 
-func TestVectorQuerySetFlatParams(t *testing.T) {
+func TestSearchQuerySetFlatParams(t *testing.T) {
 	params := NewFlatQueryParams(false, 1.0)
 	if params == nil {
 		t.Fatal("NewFlatQueryParams returned nil")
 	}
 
-	query := NewVectorQuery()
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -306,10 +306,10 @@ func TestVectorQuerySetFlatParams(t *testing.T) {
 	}
 }
 
-func TestVectorQueryDestroy(t *testing.T) {
-	query := NewVectorQuery()
+func TestSearchQueryDestroy(t *testing.T) {
+	query := NewSearchQuery()
 	if query == nil {
-		t.Fatal("NewVectorQuery returned nil")
+		t.Fatal("NewSearchQuery returned nil")
 	}
 
 	// First Destroy should not panic
@@ -319,18 +319,18 @@ func TestVectorQueryDestroy(t *testing.T) {
 	query.Destroy()
 }
 
-func TestNewGroupByVectorQuery(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestNewGroupBySearchQuery(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	query.Destroy()
 }
 
-func TestGroupByVectorQuerySetFieldName(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetFieldName(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -340,10 +340,10 @@ func TestGroupByVectorQuerySetFieldName(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetGroupByFieldName(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetGroupByFieldName(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -353,10 +353,10 @@ func TestGroupByVectorQuerySetGroupByFieldName(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetGroupCount(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetGroupCount(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -366,10 +366,10 @@ func TestGroupByVectorQuerySetGroupCount(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetGroupTopK(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetGroupTopK(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -379,10 +379,10 @@ func TestGroupByVectorQuerySetGroupTopK(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetQueryVector(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetQueryVector(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -393,10 +393,10 @@ func TestGroupByVectorQuerySetQueryVector(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetQueryVectorEmpty(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetQueryVectorEmpty(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -407,10 +407,10 @@ func TestGroupByVectorQuerySetQueryVectorEmpty(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetFilter(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetFilter(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -421,10 +421,10 @@ func TestGroupByVectorQuerySetFilter(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetIncludeVector(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetIncludeVector(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -434,10 +434,10 @@ func TestGroupByVectorQuerySetIncludeVector(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetOutputFields(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQuerySetOutputFields(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -448,15 +448,15 @@ func TestGroupByVectorQuerySetOutputFields(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetHNSWParams(t *testing.T) {
+func TestGroupBySearchQuerySetHNSWParams(t *testing.T) {
 	params := NewHNSWQueryParams(100, 0.5, false, false)
 	if params == nil {
 		t.Fatal("NewHNSWQueryParams returned nil")
 	}
 
-	query := NewGroupByVectorQuery()
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -471,15 +471,15 @@ func TestGroupByVectorQuerySetHNSWParams(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetIVFParams(t *testing.T) {
+func TestGroupBySearchQuerySetIVFParams(t *testing.T) {
 	params := NewIVFQueryParams(10, false, 1.0)
 	if params == nil {
 		t.Fatal("NewIVFQueryParams returned nil")
 	}
 
-	query := NewGroupByVectorQuery()
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -494,15 +494,15 @@ func TestGroupByVectorQuerySetIVFParams(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQuerySetFlatParams(t *testing.T) {
+func TestGroupBySearchQuerySetFlatParams(t *testing.T) {
 	params := NewFlatQueryParams(false, 1.0)
 	if params == nil {
 		t.Fatal("NewFlatQueryParams returned nil")
 	}
 
-	query := NewGroupByVectorQuery()
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
@@ -517,10 +517,10 @@ func TestGroupByVectorQuerySetFlatParams(t *testing.T) {
 	}
 }
 
-func TestGroupByVectorQueryDestroy(t *testing.T) {
-	query := NewGroupByVectorQuery()
+func TestGroupBySearchQueryDestroy(t *testing.T) {
+	query := NewGroupBySearchQuery()
 	if query == nil {
-		t.Fatal("NewGroupByVectorQuery returned nil")
+		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 
 	// First Destroy should not panic

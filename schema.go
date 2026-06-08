@@ -25,45 +25,76 @@ func NewIndexParams(indexType IndexType) *IndexParams {
 }
 
 // NewHNSWIndexParams creates HNSW index parameters with the specified metric type and parameters.
-func NewHNSWIndexParams(metric MetricType, m, efConstruction int) *IndexParams {
+func NewHNSWIndexParams(metric MetricType, m, efConstruction int) (*IndexParams, error) {
 	params := NewIndexParams(IndexTypeHNSW)
 	if params == nil {
-		return nil
+		return nil, &Error{Code: InternalError, Message: "failed to create HNSW index params"}
 	}
-	_ = params.SetMetricType(metric)
-	_ = params.SetHNSWParams(m, efConstruction)
-	return params
+	if err := params.SetMetricType(metric); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	if err := params.SetHNSWParams(m, efConstruction); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
 }
 
 // NewInvertIndexParams creates invert index parameters with the specified options.
-func NewInvertIndexParams(enableRangeOpt, enableWildcard bool) *IndexParams {
+func NewInvertIndexParams(enableRangeOpt, enableWildcard bool) (*IndexParams, error) {
 	params := NewIndexParams(IndexTypeInvert)
 	if params == nil {
-		return nil
+		return nil, &Error{Code: InternalError, Message: "failed to create invert index params"}
 	}
-	_ = params.SetInvertParams(enableRangeOpt, enableWildcard)
-	return params
+	if err := params.SetInvertParams(enableRangeOpt, enableWildcard); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
 }
 
 // NewIVFIndexParams creates IVF index parameters with the specified metric type and parameters.
-func NewIVFIndexParams(metric MetricType, nList, nIters int, useSoar bool) *IndexParams {
+func NewIVFIndexParams(metric MetricType, nList, nIters int, useSoar bool) (*IndexParams, error) {
 	params := NewIndexParams(IndexTypeIVF)
 	if params == nil {
-		return nil
+		return nil, &Error{Code: InternalError, Message: "failed to create IVF index params"}
 	}
-	_ = params.SetMetricType(metric)
-	_ = params.SetIVFParams(nList, nIters, useSoar)
-	return params
+	if err := params.SetMetricType(metric); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	if err := params.SetIVFParams(nList, nIters, useSoar); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
 }
 
 // NewFlatIndexParams creates Flat index parameters with the specified metric type.
-func NewFlatIndexParams(metric MetricType) *IndexParams {
+func NewFlatIndexParams(metric MetricType) (*IndexParams, error) {
 	params := NewIndexParams(IndexTypeFlat)
 	if params == nil {
-		return nil
+		return nil, &Error{Code: InternalError, Message: "failed to create flat index params"}
 	}
-	_ = params.SetMetricType(metric)
-	return params
+	if err := params.SetMetricType(metric); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
+}
+
+// NewFTSIndexParams creates FTS index parameters with the specified tokenizer and filters.
+func NewFTSIndexParams(tokenizerName string, filters []string, extraParams string) (*IndexParams, error) {
+	params := NewIndexParams(IndexTypeFTS)
+	if params == nil {
+		return nil, &Error{Code: InternalError, Message: "failed to create FTS index params"}
+	}
+	if err := params.SetFTSParams(tokenizerName, filters, extraParams); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
 }
 
 // Destroy releases the index parameters resources.
@@ -122,6 +153,60 @@ func (p *IndexParams) SetIVFParams(nList, nIters int, useSoar bool) error {
 // SetInvertParams sets invert index specific parameters.
 func (p *IndexParams) SetInvertParams(enableRangeOpt, enableWildcard bool) error {
 	return toError(C.zvec_index_params_set_invert_params(p.handle, C.bool(enableRangeOpt), C.bool(enableWildcard)))
+}
+
+// SetFTSParams sets FTS index specific parameters.
+func (p *IndexParams) SetFTSParams(tokenizerName string, filters []string, extraParams string) error {
+	var cTokenizer *C.char
+	if tokenizerName != "" {
+		cTokenizer = C.CString(tokenizerName)
+		defer C.free(unsafe.Pointer(cTokenizer))
+	}
+	var cExtra *C.char
+	if extraParams != "" {
+		cExtra = C.CString(extraParams)
+		defer C.free(unsafe.Pointer(cExtra))
+	}
+	var cFilters *C.zvec_string_array_t
+	if len(filters) > 0 {
+		cFilters = C.zvec_string_array_create(C.size_t(len(filters)))
+		for i, f := range filters {
+			cs := C.CString(f)
+			C.zvec_string_array_add(cFilters, C.size_t(i), cs)
+			C.free(unsafe.Pointer(cs))
+		}
+		defer C.zvec_string_array_destroy(cFilters)
+	}
+	return toError(C.zvec_index_params_set_fts_params(p.handle, cTokenizer, cFilters, cExtra))
+}
+
+// GetFTSParams returns FTS index parameters.
+func (p *IndexParams) GetFTSParams() (tokenizerName string, filters []string, extraParams string, err error) {
+	var cTokenizer *C.char
+	var cFilters *C.zvec_string_array_t
+	var cExtra *C.char
+	err = toError(C.zvec_index_params_get_fts_params(p.handle, &cTokenizer, &cFilters, &cExtra))
+	if err != nil {
+		return
+	}
+	if cTokenizer != nil {
+		tokenizerName = C.GoString(cTokenizer)
+	}
+	if cExtra != nil {
+		extraParams = C.GoString(cExtra)
+	}
+	if cFilters != nil {
+		defer C.zvec_string_array_destroy(cFilters)
+		count := int(cFilters.count)
+		filters = make([]string, count)
+		for i := 0; i < count; i++ {
+			s := (*C.zvec_string_t)(unsafe.Pointer(uintptr(unsafe.Pointer(cFilters.strings)) + uintptr(i)*unsafe.Sizeof(*cFilters.strings)))
+			if s.data != nil {
+				filters[i] = C.GoStringN(s.data, C.int(s.length))
+			}
+		}
+	}
+	return
 }
 
 // FieldSchema wraps zvec_field_schema_t (opaque pointer).

@@ -12,10 +12,9 @@ import "C"
 import "unsafe"
 
 // Doc represents a document in the zvec vector database.
-// It wraps the C zvec_doc_t handle and manages ownership.
+// It wraps the C zvec_doc_t handle.
 type Doc struct {
 	handle *C.zvec_doc_t
-	owned  bool
 }
 
 // NewDoc creates a new document with owned=true.
@@ -25,13 +24,12 @@ func NewDoc() *Doc {
 	if handle == nil {
 		return nil
 	}
-	return &Doc{handle: handle, owned: true}
+	return &Doc{handle: handle}
 }
 
 // Destroy releases the document resources.
-// Only effective when owned=true.
 func (d *Doc) Destroy() {
-	if d.handle != nil && d.owned {
+	if d.handle != nil {
 		C.zvec_doc_destroy(d.handle)
 		d.handle = nil
 	}
@@ -156,7 +154,7 @@ func (d *Doc) AddDoubleField(name string, value float64) error {
 // AddVectorFP32Field adds a float32 vector field to the document.
 func (d *Doc) AddVectorFP32Field(name string, vector []float32) error {
 	if len(vector) == 0 {
-		return &Error{Code: ErrInvalidArgument, Message: "vector cannot be empty"}
+		return &Error{Code: InvalidArgument, Message: "vector cannot be empty"}
 	}
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -170,7 +168,7 @@ func (d *Doc) AddVectorFP32Field(name string, vector []float32) error {
 // The data must not be empty; use SetFieldNull for null values.
 func (d *Doc) AddBinaryField(name string, data []byte) error {
 	if len(data) == 0 {
-		return &Error{Code: ErrInvalidArgument, Message: "binary data cannot be empty"}
+		return &Error{Code: InvalidArgument, Message: "binary data cannot be empty"}
 	}
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))

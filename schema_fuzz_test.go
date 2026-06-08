@@ -95,8 +95,8 @@ func FuzzHNSWIndexParams(f *testing.F) {
 	f.Add(2, 50)
 
 	f.Fuzz(func(t *testing.T, m, efConstruction int) {
-		params := NewHNSWIndexParams(MetricTypeCosine, m, efConstruction)
-		if params == nil {
+		params, err := NewHNSWIndexParams(MetricTypeCosine, m, efConstruction)
+		if err != nil {
 			return
 		}
 		defer params.Destroy()

@@ -68,9 +68,15 @@ func main() {
 	schema := zvec.NewCollectionSchema("error_test")
 	defer schema.Destroy()
 
-	invertParams := zvec.NewInvertIndexParams(true, false)
+	invertParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create invert index params: %v", err)
+	}
 	defer invertParams.Destroy()
-	hnswParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW index params: %v", err)
+	}
 	defer hnswParams.Destroy()
 
 	idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
@@ -104,7 +110,7 @@ func main() {
 	}
 
 	// Fetch an existing document
-	existingDocs, fetchErr := collection.Fetch([]string{"existing_doc"})
+	existingDocs, fetchErr := collection.Fetch([]string{"existing_doc"}, nil)
 	if fetchErr != nil {
 		if zvec.IsNotFound(fetchErr) {
 			fmt.Println("  Document not found (unexpected)")
@@ -117,7 +123,7 @@ func main() {
 	}
 
 	// Fetch a non-existing document — returns empty result (not an error)
-	missingDocs, fetchErr := collection.Fetch([]string{"non_existent_doc"})
+	missingDocs, fetchErr := collection.Fetch([]string{"non_existent_doc"}, nil)
 	if fetchErr != nil {
 		if zvec.IsNotFound(fetchErr) {
 			fmt.Println("✓ IsNotFound correctly identified missing document")
@@ -199,17 +205,17 @@ func main() {
 		}
 
 		switch zvecErr.Code {
-		case zvec.ErrNotFound:
+		case zvec.NotFound:
 			return "resource not found — check if the collection/document exists"
-		case zvec.ErrAlreadyExists:
+		case zvec.AlreadyExists:
 			return "resource already exists — use upsert instead of insert"
-		case zvec.ErrInvalidArgument:
+		case zvec.InvalidArgument:
 			return "invalid argument — check input parameters"
-		case zvec.ErrPermissionDenied:
+		case zvec.PermissionDenied:
 			return "permission denied — check file permissions"
-		case zvec.ErrResourceExhausted:
+		case zvec.ResourceExhausted:
 			return "resource exhausted — consider increasing memory limit"
-		case zvec.ErrInternalError:
+		case zvec.InternalError:
 			return "internal error — this may be a bug, please report it"
 		default:
 			return fmt.Sprintf("error code %d: %s", zvecErr.Code, zvecErr.Message)

@@ -52,7 +52,10 @@ func main() {
 	// Add ID field
 	idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
 	defer idField.Destroy()
-	invertParams := zvec.NewInvertIndexParams(true, false)
+	invertParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create invert index params: %v", err)
+	}
 	defer invertParams.Destroy()
 	if err := idField.SetIndexParams(invertParams); err != nil {
 		log.Fatalf("Failed to set index params for id field: %v", err)
@@ -64,7 +67,10 @@ func main() {
 	// Add embedding field
 	embeddingField := zvec.NewFieldSchema("embedding", zvec.DataTypeVectorFP32, false, 128)
 	defer embeddingField.Destroy()
-	hnswParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW index params: %v", err)
+	}
 	defer hnswParams.Destroy()
 	if err := embeddingField.SetIndexParams(hnswParams); err != nil {
 		log.Fatalf("Failed to set index params for embedding field: %v", err)
@@ -154,7 +160,7 @@ func main() {
 	fmt.Println("✓ Collection reopened in read-only mode")
 
 	// Verify data
-	fetchedDocs, err := reopenedCollection.Fetch([]string{"doc1"})
+	fetchedDocs, err := reopenedCollection.Fetch([]string{"doc1"}, nil)
 	if err != nil {
 		log.Fatalf("Failed to fetch documents: %v", err)
 	}
@@ -203,7 +209,10 @@ func main() {
 	fmt.Println("\n--- Example 6: Create Index Dynamically ---")
 
 	// Create index for the new category field
-	categoryIndexParams := zvec.NewInvertIndexParams(true, false)
+	categoryIndexParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create category index params: %v", err)
+	}
 	defer categoryIndexParams.Destroy()
 	if err := readWriteCollection.CreateIndex("category", categoryIndexParams); err != nil {
 		log.Fatalf("Failed to create index: %v", err)

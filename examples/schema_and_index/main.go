@@ -40,7 +40,10 @@ func main() {
 	// Add primary key field (String with inverted index)
 	idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
 	defer idField.Destroy()
-	invertParams := zvec.NewInvertIndexParams(true, false)
+	invertParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create invert index params: %v", err)
+	}
 	defer invertParams.Destroy()
 	if err := idField.SetIndexParams(invertParams); err != nil {
 		log.Fatalf("Failed to set index params for id field: %v", err)
@@ -77,7 +80,10 @@ func main() {
 	// Add VectorFP32 field with HNSW index
 	embeddingField := zvec.NewFieldSchema("embedding", zvec.DataTypeVectorFP32, false, 128)
 	defer embeddingField.Destroy()
-	hnswParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW index params: %v", err)
+	}
 	defer hnswParams.Destroy()
 	if err := embeddingField.SetIndexParams(hnswParams); err != nil {
 		log.Fatalf("Failed to set index params for embedding field: %v", err)
@@ -97,27 +103,42 @@ func main() {
 	fmt.Println("--- Example 2: Different Index Types and Metrics ---")
 
 	// HNSW index with L2 metric
-	hnswL2Params := zvec.NewHNSWIndexParams(zvec.MetricTypeL2, 32, 100)
+	hnswL2Params, err := zvec.NewHNSWIndexParams(zvec.MetricTypeL2, 32, 100)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW L2 index params: %v", err)
+	}
 	defer hnswL2Params.Destroy()
 	fmt.Println("✓ Created HNSW index params with L2 metric (m=32, efConstruction=100)")
 
 	// HNSW index with IP metric
-	hnswIPParams := zvec.NewHNSWIndexParams(zvec.MetricTypeIP, 24, 150)
+	hnswIPParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeIP, 24, 150)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW IP index params: %v", err)
+	}
 	defer hnswIPParams.Destroy()
 	fmt.Println("✓ Created HNSW index params with IP metric (m=24, efConstruction=150)")
 
 	// IVF index with Cosine metric
-	ivfParams := zvec.NewIVFIndexParams(zvec.MetricTypeCosine, 100, 20, false)
+	ivfParams, err := zvec.NewIVFIndexParams(zvec.MetricTypeCosine, 100, 20, false)
+	if err != nil {
+		log.Fatalf("Failed to create IVF index params: %v", err)
+	}
 	defer ivfParams.Destroy()
 	fmt.Println("✓ Created IVF index params with Cosine metric (nList=100, nIters=20)")
 
 	// Flat index with L2 metric
-	flatParams := zvec.NewFlatIndexParams(zvec.MetricTypeL2)
+	flatParams, err := zvec.NewFlatIndexParams(zvec.MetricTypeL2)
+	if err != nil {
+		log.Fatalf("Failed to create Flat index params: %v", err)
+	}
 	defer flatParams.Destroy()
 	fmt.Println("✓ Created Flat index params with L2 metric")
 
 	// Invert index with wildcard support
-	invertWildcardParams := zvec.NewInvertIndexParams(true, true)
+	invertWildcardParams, err := zvec.NewInvertIndexParams(true, true)
+	if err != nil {
+		log.Fatalf("Failed to create invert wildcard index params: %v", err)
+	}
 	defer invertWildcardParams.Destroy()
 	fmt.Println("✓ Created Invert index params with wildcard support")
 
@@ -126,7 +147,10 @@ func main() {
 	// Example 3: Quantization types
 	fmt.Println("--- Example 3: Quantization Types ---")
 
-	hnswQuantizedParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswQuantizedParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW quantized index params: %v", err)
+	}
 	defer hnswQuantizedParams.Destroy()
 	if err := hnswQuantizedParams.SetQuantizeType(zvec.QuantizeTypeFP16); err != nil {
 		log.Fatalf("Failed to set quantize type: %v", err)
@@ -134,7 +158,10 @@ func main() {
 	fmt.Printf("✓ HNSW with FP16 quantization — type=%d, metric=%d\n",
 		hnswQuantizedParams.GetType(), hnswQuantizedParams.GetMetricType())
 
-	hnswInt8Params := zvec.NewHNSWIndexParams(zvec.MetricTypeL2, 16, 200)
+	hnswInt8Params, err := zvec.NewHNSWIndexParams(zvec.MetricTypeL2, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW Int8 index params: %v", err)
+	}
 	defer hnswInt8Params.Destroy()
 	if err := hnswInt8Params.SetQuantizeType(zvec.QuantizeTypeInt8); err != nil {
 		log.Fatalf("Failed to set quantize type: %v", err)

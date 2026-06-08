@@ -374,7 +374,7 @@ func (c *Collection) DeleteByFilter(filter string) error {
 // Query performs a vector similarity search.
 // The caller is responsible for calling Destroy() on each returned Doc,
 // or using FreeDocs() to free all at once.
-func (c *Collection) Query(query *VectorQuery) ([]*Doc, error) {
+func (c *Collection) Query(query *SearchQuery) ([]*Doc, error) {
 	var cResults **C.zvec_doc_t
 	var resultCount C.size_t
 	err := toError(C.zvec_collection_query(c.handle, query.handle, &cResults, &resultCount))
@@ -390,15 +390,48 @@ func (c *Collection) Query(query *VectorQuery) ([]*Doc, error) {
 	resultSlice := unsafe.Slice(cResults, count)
 	docs := make([]*Doc, count)
 	for i := 0; i < count; i++ {
-		docs[i] = &Doc{handle: resultSlice[i], owned: true}
+		docs[i] = &Doc{handle: resultSlice[i]}
 	}
+	C.zvec_free(unsafe.Pointer(cResults))
 	return docs, nil
 }
 
-// Fetch retrieves documents by primary keys.
+// MultiQuery performs a multi-query search combining multiple sub-queries.
 // The caller is responsible for calling Destroy() on each returned Doc,
 // or using FreeDocs() to free all at once.
-func (c *Collection) Fetch(primaryKeys []string) ([]*Doc, error) {
+func (c *Collection) MultiQuery(query *MultiQuery) ([]*Doc, error) {
+	var cResults **C.zvec_doc_t
+	var resultCount C.size_t
+	err := toError(C.zvec_collection_multi_query(c.handle, query.handle, &cResults, &resultCount))
+	if err != nil {
+		return nil, err
+	}
+
+	count := int(resultCount)
+	if count == 0 {
+		return nil, nil
+	}
+
+	resultSlice := unsafe.Slice(cResults, count)
+	docs := make([]*Doc, count)
+	for i := 0; i < count; i++ {
+		docs[i] = &Doc{handle: resultSlice[i]}
+	}
+	C.zvec_free(unsafe.Pointer(cResults))
+	return docs, nil
+}
+
+// FetchOptions controls optional parameters for Fetch.
+type FetchOptions struct {
+	OutputFields  []string
+	IncludeVector bool
+}
+
+// Fetch retrieves documents by primary keys.
+// Pass nil for opts to use defaults (all fields, no vectors).
+// The caller is responsible for calling Destroy() on each returned Doc,
+// or using FreeDocs() to free all at once.
+func (c *Collection) Fetch(primaryKeys []string, opts *FetchOptions) ([]*Doc, error) {
 	if len(primaryKeys) == 0 {
 		return nil, nil
 	}
@@ -412,12 +445,35 @@ func (c *Collection) Fetch(primaryKeys []string) ([]*Doc, error) {
 		}
 	}()
 
+	var cOutputFields **C.char
+	var outputFieldCount C.size_t
+	var includeVector C.bool
+	if opts != nil {
+		includeVector = C.bool(opts.IncludeVector)
+		if len(opts.OutputFields) > 0 {
+			fields := make([]*C.char, len(opts.OutputFields))
+			for i, f := range opts.OutputFields {
+				fields[i] = C.CString(f)
+			}
+			defer func() {
+				for _, cf := range fields {
+					C.free(unsafe.Pointer(cf))
+				}
+			}()
+			cOutputFields = (**C.char)(unsafe.Pointer(&fields[0]))
+			outputFieldCount = C.size_t(len(opts.OutputFields))
+		}
+	}
+
 	var cDocs **C.zvec_doc_t
 	var foundCount C.size_t
 	err := toError(C.zvec_collection_fetch(
 		c.handle,
 		(**C.char)(unsafe.Pointer(&cPKs[0])),
 		C.size_t(len(primaryKeys)),
+		cOutputFields,
+		outputFieldCount,
+		includeVector,
 		&cDocs,
 		&foundCount,
 	))
@@ -433,8 +489,9 @@ func (c *Collection) Fetch(primaryKeys []string) ([]*Doc, error) {
 	resultSlice := unsafe.Slice(cDocs, count)
 	docs := make([]*Doc, count)
 	for i := 0; i < count; i++ {
-		docs[i] = &Doc{handle: resultSlice[i], owned: true}
+		docs[i] = &Doc{handle: resultSlice[i]}
 	}
+	C.zvec_free(unsafe.Pointer(cDocs))
 	return docs, nil
 }
 
