@@ -15,17 +15,17 @@ import (
 type ErrorCode int
 
 const (
-	OK                ErrorCode = 0
-	NotFound          ErrorCode = 1
-	AlreadyExists     ErrorCode = 2
-	InvalidArgument   ErrorCode = 3
-	PermissionDenied  ErrorCode = 4
+	OK                 ErrorCode = 0
+	NotFound           ErrorCode = 1
+	AlreadyExists      ErrorCode = 2
+	InvalidArgument    ErrorCode = 3
+	PermissionDenied   ErrorCode = 4
 	FailedPrecondition ErrorCode = 5
-	ResourceExhausted ErrorCode = 6
-	Unavailable       ErrorCode = 7
-	InternalError     ErrorCode = 8
-	NotSupported      ErrorCode = 9
-	Unknown           ErrorCode = 10
+	ResourceExhausted  ErrorCode = 6
+	Unavailable        ErrorCode = 7
+	InternalError      ErrorCode = 8
+	NotSupported       ErrorCode = 9
+	Unknown            ErrorCode = 10
 )
 
 // String returns the string representation of the error code.
