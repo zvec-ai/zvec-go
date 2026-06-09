@@ -7,48 +7,6 @@ package zvec
 import "C"
 import "unsafe"
 
-// Reranker represents a reranking strategy for multi-query results.
-type Reranker struct {
-	handle *C.zvec_reranker_t
-}
-
-// NewRRFReranker creates an RRF (Reciprocal Rank Fusion) reranker.
-func NewRRFReranker(rankConstant int) *Reranker {
-	handle := C.zvec_create_rrf_reranker(C.int(rankConstant))
-	if handle == nil {
-		return nil
-	}
-	return &Reranker{handle: handle}
-}
-
-// NewWeightedReranker creates a Weighted reranker with the given weights.
-func NewWeightedReranker(weights []float64) *Reranker {
-	if len(weights) == 0 {
-		return nil
-	}
-	handle := C.zvec_create_weighted_reranker(
-		(*C.double)(unsafe.Pointer(&weights[0])),
-		C.size_t(len(weights)),
-	)
-	if handle == nil {
-		return nil
-	}
-	return &Reranker{handle: handle}
-}
-
-// Destroy releases the reranker resources.
-func (r *Reranker) Destroy() {
-	if r.handle != nil {
-		C.zvec_destroy_reranker(r.handle)
-		r.handle = nil
-	}
-}
-
-// GetRankConstant returns the RRF rank constant, or -1 if not an RRF reranker.
-func (r *Reranker) GetRankConstant() int {
-	return int(C.zvec_get_reranker_rank_constant(r.handle))
-}
-
 // MultiQuery represents a multi-query operation combining multiple sub-queries.
 type MultiQuery struct {
 	handle *C.zvec_multi_query_t
@@ -135,10 +93,21 @@ func (q *MultiQuery) SetOutputFields(fields []string) error {
 	))
 }
 
-// SetReranker sets the reranker for the multi-query.
-// The reranker is copied (shared_ptr); the caller still owns and must destroy the reranker.
-func (q *MultiQuery) SetReranker(reranker *Reranker) error {
-	return toError(C.zvec_multi_query_set_reranker(q.handle, reranker.handle))
+// SetRerankRRF sets the RRF (Reciprocal Rank Fusion) rerank strategy.
+func (q *MultiQuery) SetRerankRRF(rankConstant int) error {
+	return toError(C.zvec_multi_query_set_rerank_rrf(q.handle, C.int(rankConstant)))
+}
+
+// SetRerankWeighted sets the Weighted rerank strategy with the given per-sub-query weights.
+func (q *MultiQuery) SetRerankWeighted(weights []float64) error {
+	if len(weights) == 0 {
+		return &Error{Code: InvalidArgument, Message: "weights cannot be empty"}
+	}
+	return toError(C.zvec_multi_query_set_rerank_weighted(
+		q.handle,
+		(*C.double)(unsafe.Pointer(&weights[0])),
+		C.size_t(len(weights)),
+	))
 }
 
 // SubQuery represents a sub-query within a multi-query.

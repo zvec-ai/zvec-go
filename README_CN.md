@@ -303,10 +303,9 @@ func main() {
 |-----|------|
 | `NewMultiQuery()` | 创建多路查询（组合多个子查询） |
 | `AddSubQuery(sub)` | 添加子查询（复制语义） |
-| `SetReranker(reranker)` | 设置重排序策略 |
+| `SetRerankRRF(rankConstant)` | 设置 RRF 重排序策略 |
+| `SetRerankWeighted(weights)` | 设置加权重排序策略 |
 | `NewSubQuery()` | 创建子查询 |
-| `NewRRFReranker(rankConstant)` | 创建 RRF 重排序器 |
-| `NewWeightedReranker(weights)` | 创建加权重排序器 |
 
 ### 数据类型
 

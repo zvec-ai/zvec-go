@@ -303,10 +303,9 @@ func main() {
 |-----|-------------|
 | `NewMultiQuery()` | Create a multi-query combining sub-queries |
 | `AddSubQuery(sub)` | Add a sub-query (copied) |
-| `SetReranker(reranker)` | Set reranker strategy |
+| `SetRerankRRF(rankConstant)` | Set RRF rerank strategy on multi-query |
+| `SetRerankWeighted(weights)` | Set weighted rerank strategy on multi-query |
 | `NewSubQuery()` | Create a sub-query |
-| `NewRRFReranker(rankConstant)` | Create an RRF reranker |
-| `NewWeightedReranker(weights)` | Create a weighted reranker |
 
 ### Data Types
 

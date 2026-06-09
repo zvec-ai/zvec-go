@@ -6,37 +6,40 @@ import (
 	"testing"
 )
 
-func TestNewRRFReranker(t *testing.T) {
-	reranker := NewRRFReranker(60)
-	if reranker == nil {
-		t.Fatal("NewRRFReranker returned nil")
+func TestMultiQuerySetRerankRRF(t *testing.T) {
+	mq := NewMultiQuery()
+	if mq == nil {
+		t.Fatal("NewMultiQuery returned nil")
 	}
-	defer reranker.Destroy()
+	defer mq.Destroy()
 
-	if got := reranker.GetRankConstant(); got != 60 {
-		t.Errorf("GetRankConstant() = %d, want 60", got)
+	if err := mq.SetRerankRRF(60); err != nil {
+		t.Fatalf("SetRerankRRF failed: %v", err)
 	}
 }
 
-func TestNewWeightedReranker(t *testing.T) {
-	reranker := NewWeightedReranker([]float64{0.7, 0.3})
-	if reranker == nil {
-		t.Fatal("NewWeightedReranker returned nil")
+func TestMultiQuerySetRerankWeighted(t *testing.T) {
+	mq := NewMultiQuery()
+	if mq == nil {
+		t.Fatal("NewMultiQuery returned nil")
 	}
-	defer reranker.Destroy()
+	defer mq.Destroy()
 
-	if got := reranker.GetRankConstant(); got != -1 {
-		t.Errorf("GetRankConstant() = %d, want -1 for weighted reranker", got)
+	if err := mq.SetRerankWeighted([]float64{0.7, 0.3}); err != nil {
+		t.Fatalf("SetRerankWeighted failed: %v", err)
 	}
 }
 
-func TestRerankerDestroy(t *testing.T) {
-	reranker := NewRRFReranker(60)
-	if reranker == nil {
-		t.Fatal("NewRRFReranker returned nil")
+func TestMultiQuerySetRerankWeightedEmpty(t *testing.T) {
+	mq := NewMultiQuery()
+	if mq == nil {
+		t.Fatal("NewMultiQuery returned nil")
 	}
-	reranker.Destroy()
-	reranker.Destroy() // double destroy should not panic
+	defer mq.Destroy()
+
+	if err := mq.SetRerankWeighted([]float64{}); err == nil {
+		t.Error("SetRerankWeighted with empty weights should return error")
+	}
 }
 
 func TestNewMultiQuery(t *testing.T) {
@@ -122,28 +125,6 @@ func TestMultiQueryAddSubQuery(t *testing.T) {
 	}
 }
 
-func TestMultiQuerySetReranker(t *testing.T) {
-	mq := NewMultiQuery()
-	if mq == nil {
-		t.Fatal("NewMultiQuery returned nil")
-	}
-	defer mq.Destroy()
-
-	reranker := NewRRFReranker(60)
-	if reranker == nil {
-		t.Fatal("NewRRFReranker returned nil")
-	}
-	defer reranker.Destroy()
-
-	if err := mq.SetReranker(reranker); err != nil {
-		t.Fatalf("SetReranker failed: %v", err)
-	}
-
-	// reranker should still be valid (shared_ptr copy)
-	if reranker.handle == nil {
-		t.Error("reranker.handle should still be valid after SetReranker")
-	}
-}
 
 func TestMultiQuerySetOutputFields(t *testing.T) {
 	mq := NewMultiQuery()
