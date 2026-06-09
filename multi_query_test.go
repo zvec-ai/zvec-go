@@ -125,7 +125,6 @@ func TestMultiQueryAddSubQuery(t *testing.T) {
 	}
 }
 
-
 func TestMultiQuerySetOutputFields(t *testing.T) {
 	mq := NewMultiQuery()
 	if mq == nil {
