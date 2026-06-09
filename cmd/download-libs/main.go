@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	go run ./cmd/download-libs [-version v0.3.1] [-dest ./lib]
+//	go run ./cmd/download-libs [-version v0.5.0] [-dest ./lib]
 //
 // If -version is not specified, it reads from the VERSION file in the module root.
 // If -dest is not specified, it defaults to ./lib relative to the module root.
@@ -45,7 +45,7 @@ func main() {
 	var version string
 	var dest string
 
-	flag.StringVar(&version, "version", "", "Library version to download (e.g. v0.3.1). Defaults to VERSION file.")
+	flag.StringVar(&version, "version", "", "Library version to download (e.g. v0.5.0). Defaults to VERSION file.")
 	flag.StringVar(&dest, "dest", "", "Destination directory for lib/. Defaults to ./lib relative to module root.")
 	flag.Parse()
 
@@ -59,7 +59,7 @@ func main() {
 	if version == "" {
 		version, err = readVersionFile(filepath.Join(moduleRoot, "VERSION"))
 		if err != nil {
-			fatalf("No -version flag and cannot read VERSION file: %v\nUsage: go run ./cmd/download-libs -version v0.3.1", err)
+			fatalf("No -version flag and cannot read VERSION file: %v\nUsage: go run ./cmd/download-libs -version v0.5.0", err)
 		}
 	}
 	version = strings.TrimSpace(version)
