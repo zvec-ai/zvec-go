@@ -9,9 +9,9 @@ import (
 // IndexParams Tests
 
 func TestNewIndexParamsHNSW(t *testing.T) {
-	params := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
-	if params == nil {
-		t.Fatal("NewHNSWIndexParams() returned nil")
+	params, err := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	if err != nil {
+		t.Fatalf("NewHNSWIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 
@@ -33,9 +33,9 @@ func TestNewIndexParamsHNSW(t *testing.T) {
 }
 
 func TestNewIndexParamsInvert(t *testing.T) {
-	params := NewInvertIndexParams(true, false)
-	if params == nil {
-		t.Fatal("NewInvertIndexParams() returned nil")
+	params, err := NewInvertIndexParams(true, false)
+	if err != nil {
+		t.Fatalf("NewInvertIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 
@@ -45,9 +45,9 @@ func TestNewIndexParamsInvert(t *testing.T) {
 }
 
 func TestNewIndexParamsIVF(t *testing.T) {
-	params := NewIVFIndexParams(MetricTypeL2, 100, 10, false)
-	if params == nil {
-		t.Fatal("NewIVFIndexParams() returned nil")
+	params, err := NewIVFIndexParams(MetricTypeL2, 100, 10, false)
+	if err != nil {
+		t.Fatalf("NewIVFIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 
@@ -61,9 +61,9 @@ func TestNewIndexParamsIVF(t *testing.T) {
 }
 
 func TestNewIndexParamsFlat(t *testing.T) {
-	params := NewFlatIndexParams(MetricTypeIP)
-	if params == nil {
-		t.Fatal("NewFlatIndexParams() returned nil")
+	params, err := NewFlatIndexParams(MetricTypeIP)
+	if err != nil {
+		t.Fatalf("NewFlatIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 
@@ -77,9 +77,9 @@ func TestNewIndexParamsFlat(t *testing.T) {
 }
 
 func TestIndexParamsSetQuantizeType(t *testing.T) {
-	params := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
-	if params == nil {
-		t.Fatal("NewHNSWIndexParams() returned nil")
+	params, err := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	if err != nil {
+		t.Fatalf("NewHNSWIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 
@@ -103,9 +103,9 @@ func TestIndexParamsSetQuantizeType(t *testing.T) {
 }
 
 func TestIndexParamsDestroy(t *testing.T) {
-	params := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
-	if params == nil {
-		t.Fatal("NewHNSWIndexParams() returned nil")
+	params, err := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	if err != nil {
+		t.Fatalf("NewHNSWIndexParams() failed: %v", err)
 	}
 
 	// First Destroy should not panic
@@ -116,9 +116,9 @@ func TestIndexParamsDestroy(t *testing.T) {
 }
 
 func TestIndexParamsSetMetricType(t *testing.T) {
-	params := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
-	if params == nil {
-		t.Fatal("NewHNSWIndexParams() returned nil")
+	params, err := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	if err != nil {
+		t.Fatalf("NewHNSWIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 
@@ -265,9 +265,9 @@ func TestFieldSchemaIndex(t *testing.T) {
 	}
 
 	// Set index params
-	params := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
-	if params == nil {
-		t.Fatal("NewHNSWIndexParams() returned nil")
+	params, err := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	if err != nil {
+		t.Fatalf("NewHNSWIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 
@@ -413,9 +413,9 @@ func TestCollectionSchemaIndex(t *testing.T) {
 	}
 
 	// Add index
-	params := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
-	if params == nil {
-		t.Fatal("NewHNSWIndexParams() returned nil")
+	params, err := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	if err != nil {
+		t.Fatalf("NewHNSWIndexParams() failed: %v", err)
 	}
 	defer params.Destroy()
 

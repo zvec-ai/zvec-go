@@ -125,14 +125,20 @@ func main() {
 
 	idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
 	defer idField.Destroy()
-	invertParams := zvec.NewInvertIndexParams(true, false)
+	invertParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create invert index params: %v", err)
+	}
 	defer invertParams.Destroy()
 	idField.SetIndexParams(invertParams)
 	schema.AddField(idField)
 
 	embField := zvec.NewFieldSchema("embedding", zvec.DataTypeVectorFP32, false, 3)
 	defer embField.Destroy()
-	hnswParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW index params: %v", err)
+	}
 	defer hnswParams.Destroy()
 	embField.SetIndexParams(hnswParams)
 	schema.AddField(embField)

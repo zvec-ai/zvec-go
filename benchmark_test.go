@@ -12,8 +12,8 @@ import (
 func benchmarkCreateSchema(dimension uint32) *CollectionSchema {
 	schema := NewCollectionSchema("bench_collection")
 
-	invertParams := NewInvertIndexParams(true, false)
-	hnswParams := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	invertParams, _ := NewInvertIndexParams(true, false)
+	hnswParams, _ := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
 
 	idField := NewFieldSchema("id", DataTypeString, false, 0)
 	_ = idField.SetIndexParams(invertParams)
@@ -56,7 +56,7 @@ func BenchmarkNewFieldSchema(b *testing.B) {
 func BenchmarkNewHNSWIndexParams(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		params := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+		params, _ := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
 		params.Destroy()
 	}
 }
@@ -172,17 +172,17 @@ func BenchmarkDocGetVectorFP32Field_128D(b *testing.B) {
 
 // Query-related benchmarks
 
-func BenchmarkNewVectorQuery(b *testing.B) {
+func BenchmarkNewSearchQuery(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		query := NewVectorQuery()
+		query := NewSearchQuery()
 		query.Destroy()
 	}
 }
 
-func BenchmarkVectorQuerySetup(b *testing.B) {
+func BenchmarkSearchQuerySetup(b *testing.B) {
 	b.ReportAllocs()
-	query := NewVectorQuery()
+	query := NewSearchQuery()
 	defer query.Destroy()
 
 	queryVector := generateRandomVector(128)
@@ -346,7 +346,7 @@ func BenchmarkCollectionQuery(b *testing.B) {
 	b.StartTimer()
 
 	// Benchmark query
-	query := NewVectorQuery()
+	query := NewSearchQuery()
 	defer query.Destroy()
 	_ = query.SetFieldName("embedding")
 	_ = query.SetTopK(10)
@@ -400,7 +400,7 @@ func BenchmarkCollectionFetch(b *testing.B) {
 	// Benchmark fetch
 	for i := 0; i < b.N; i++ {
 		pk := fmt.Sprintf("doc_%d", i%100)
-		_, err := collection.Fetch([]string{pk})
+		_, err := collection.Fetch([]string{pk}, nil)
 		if err != nil {
 			b.Fatalf("Failed to fetch document: %v", err)
 		}

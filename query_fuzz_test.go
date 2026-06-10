@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// FuzzVectorQueryFilter tests SetFilter with arbitrary filter expressions.
+// FuzzSearchQueryFilter tests SetFilter with arbitrary filter expressions.
 // This catches issues with malformed expressions, injection-like strings,
 // and special characters crossing the cgo boundary into the filter parser.
-func FuzzVectorQueryFilter(f *testing.F) {
+func FuzzSearchQueryFilter(f *testing.F) {
 	f.Add("category == 'test'")
 	f.Add("")
 	f.Add("id > 0 AND id < 100")
@@ -20,9 +20,9 @@ func FuzzVectorQueryFilter(f *testing.F) {
 	f.Add("field\x00name == 'value'")
 
 	f.Fuzz(func(t *testing.T, filter string) {
-		query := NewVectorQuery()
+		query := NewSearchQuery()
 		if query == nil {
-			t.Fatal("NewVectorQuery returned nil")
+			t.Fatal("NewSearchQuery returned nil")
 		}
 		defer query.Destroy()
 
@@ -39,8 +39,8 @@ func FuzzVectorQueryFilter(f *testing.F) {
 	})
 }
 
-// FuzzVectorQueryFieldName tests SetFieldName with arbitrary field names.
-func FuzzVectorQueryFieldName(f *testing.F) {
+// FuzzSearchQueryFieldName tests SetFieldName with arbitrary field names.
+func FuzzSearchQueryFieldName(f *testing.F) {
 	f.Add("embedding")
 	f.Add("")
 	f.Add("field_with_特殊字符")
@@ -48,9 +48,9 @@ func FuzzVectorQueryFieldName(f *testing.F) {
 	f.Add("field\x00name")
 
 	f.Fuzz(func(t *testing.T, fieldName string) {
-		query := NewVectorQuery()
+		query := NewSearchQuery()
 		if query == nil {
-			t.Fatal("NewVectorQuery returned nil")
+			t.Fatal("NewSearchQuery returned nil")
 		}
 		defer query.Destroy()
 
@@ -67,9 +67,9 @@ func FuzzVectorQueryFieldName(f *testing.F) {
 	})
 }
 
-// FuzzVectorQueryTopK tests SetTopK with arbitrary integer values.
+// FuzzSearchQueryTopK tests SetTopK with arbitrary integer values.
 // This catches issues with negative values, zero, and extremely large values.
-func FuzzVectorQueryTopK(f *testing.F) {
+func FuzzSearchQueryTopK(f *testing.F) {
 	f.Add(1)
 	f.Add(10)
 	f.Add(100)
@@ -78,9 +78,9 @@ func FuzzVectorQueryTopK(f *testing.F) {
 	f.Add(1000000)
 
 	f.Fuzz(func(t *testing.T, topk int) {
-		query := NewVectorQuery()
+		query := NewSearchQuery()
 		if query == nil {
-			t.Fatal("NewVectorQuery returned nil")
+			t.Fatal("NewSearchQuery returned nil")
 		}
 		defer query.Destroy()
 
@@ -96,17 +96,17 @@ func FuzzVectorQueryTopK(f *testing.F) {
 	})
 }
 
-// FuzzGroupByVectorQueryFilter tests GroupByVectorQuery.SetFilter with arbitrary expressions.
-func FuzzGroupByVectorQueryFilter(f *testing.F) {
+// FuzzGroupBySearchQueryFilter tests GroupBySearchQuery.SetFilter with arbitrary expressions.
+func FuzzGroupBySearchQueryFilter(f *testing.F) {
 	f.Add("category == 'test'")
 	f.Add("")
 	f.Add("id > 0")
 	f.Add("'; DROP TABLE --")
 
 	f.Fuzz(func(t *testing.T, filter string) {
-		query := NewGroupByVectorQuery()
+		query := NewGroupBySearchQuery()
 		if query == nil {
-			t.Fatal("NewGroupByVectorQuery returned nil")
+			t.Fatal("NewGroupBySearchQuery returned nil")
 		}
 		defer query.Destroy()
 
@@ -117,17 +117,17 @@ func FuzzGroupByVectorQueryFilter(f *testing.F) {
 	})
 }
 
-// FuzzGroupByVectorQueryGroupCount tests SetGroupCount with arbitrary uint32 values.
-func FuzzGroupByVectorQueryGroupCount(f *testing.F) {
+// FuzzGroupBySearchQueryGroupCount tests SetGroupCount with arbitrary uint32 values.
+func FuzzGroupBySearchQueryGroupCount(f *testing.F) {
 	f.Add(uint32(1))
 	f.Add(uint32(10))
 	f.Add(uint32(0))
 	f.Add(uint32(4294967295))
 
 	f.Fuzz(func(t *testing.T, count uint32) {
-		query := NewGroupByVectorQuery()
+		query := NewGroupBySearchQuery()
 		if query == nil {
-			t.Fatal("NewGroupByVectorQuery returned nil")
+			t.Fatal("NewGroupBySearchQuery returned nil")
 		}
 		defer query.Destroy()
 

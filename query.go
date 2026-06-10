@@ -100,22 +100,63 @@ func (p *FlatQueryParams) Destroy() {
 	}
 }
 
-// VectorQuery represents a vector query operation.
-type VectorQuery struct {
+// FTSQueryParams represents query parameters for FTS index.
+type FTSQueryParams struct {
+	handle *C.zvec_fts_query_params_t
+}
+
+// NewFTSQueryParams creates a new FTS query parameters instance.
+// defaultOperator is the boolean operator for adjacent bare terms ("OR" or "AND").
+// Pass empty string to use the built-in default.
+func NewFTSQueryParams(defaultOperator string) *FTSQueryParams {
+	var cOp *C.char
+	if defaultOperator != "" {
+		cOp = C.CString(defaultOperator)
+		defer C.free(unsafe.Pointer(cOp))
+	}
+	handle := C.zvec_query_params_fts_create(cOp)
+	if handle == nil {
+		return nil
+	}
+	return &FTSQueryParams{handle: handle}
+}
+
+// Destroy releases the FTS query parameters resources.
+func (p *FTSQueryParams) Destroy() {
+	if p.handle != nil {
+		C.zvec_query_params_fts_destroy(p.handle)
+		p.handle = nil
+	}
+}
+
+// SetDefaultOperator sets the default boolean operator.
+func (p *FTSQueryParams) SetDefaultOperator(op string) error {
+	cOp := C.CString(op)
+	defer C.free(unsafe.Pointer(cOp))
+	return toError(C.zvec_query_params_fts_set_default_operator(p.handle, cOp))
+}
+
+// GetDefaultOperator returns the default boolean operator.
+func (p *FTSQueryParams) GetDefaultOperator() string {
+	return C.GoString(C.zvec_query_params_fts_get_default_operator(p.handle))
+}
+
+// SearchQuery represents a vector query operation.
+type SearchQuery struct {
 	handle *C.zvec_vector_query_t
 }
 
-// NewVectorQuery creates a new vector query instance.
-func NewVectorQuery() *VectorQuery {
+// NewSearchQuery creates a new vector query instance.
+func NewSearchQuery() *SearchQuery {
 	handle := C.zvec_vector_query_create()
 	if handle == nil {
 		return nil
 	}
-	return &VectorQuery{handle: handle}
+	return &SearchQuery{handle: handle}
 }
 
 // Destroy releases the vector query resources.
-func (q *VectorQuery) Destroy() {
+func (q *SearchQuery) Destroy() {
 	if q.handle != nil {
 		C.zvec_vector_query_destroy(q.handle)
 		q.handle = nil
@@ -123,31 +164,31 @@ func (q *VectorQuery) Destroy() {
 }
 
 // SetFieldName sets the field name for the vector query.
-func (q *VectorQuery) SetFieldName(name string) error {
+func (q *SearchQuery) SetFieldName(name string) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	return toError(C.zvec_vector_query_set_field_name(q.handle, cName))
 }
 
 // GetFieldName returns the field name.
-func (q *VectorQuery) GetFieldName() string {
+func (q *SearchQuery) GetFieldName() string {
 	return C.GoString(C.zvec_vector_query_get_field_name(q.handle))
 }
 
 // SetTopK sets the top-k parameter for the query.
-func (q *VectorQuery) SetTopK(topk int) error {
+func (q *SearchQuery) SetTopK(topk int) error {
 	return toError(C.zvec_vector_query_set_topk(q.handle, C.int(topk)))
 }
 
 // GetTopK returns the top-k parameter.
-func (q *VectorQuery) GetTopK() int {
+func (q *SearchQuery) GetTopK() int {
 	return int(C.zvec_vector_query_get_topk(q.handle))
 }
 
 // SetQueryVector sets the query vector data.
-func (q *VectorQuery) SetQueryVector(data []float32) error {
+func (q *SearchQuery) SetQueryVector(data []float32) error {
 	if len(data) == 0 {
-		return &Error{Code: ErrInvalidArgument, Message: "query vector cannot be empty"}
+		return &Error{Code: InvalidArgument, Message: "query vector cannot be empty"}
 	}
 	return toError(C.zvec_vector_query_set_query_vector(
 		q.handle,
@@ -157,39 +198,39 @@ func (q *VectorQuery) SetQueryVector(data []float32) error {
 }
 
 // SetFilter sets the filter expression for the query.
-func (q *VectorQuery) SetFilter(filter string) error {
+func (q *SearchQuery) SetFilter(filter string) error {
 	cFilter := C.CString(filter)
 	defer C.free(unsafe.Pointer(cFilter))
 	return toError(C.zvec_vector_query_set_filter(q.handle, cFilter))
 }
 
 // GetFilter returns the filter expression.
-func (q *VectorQuery) GetFilter() string {
+func (q *SearchQuery) GetFilter() string {
 	return C.GoString(C.zvec_vector_query_get_filter(q.handle))
 }
 
 // SetIncludeVector sets whether to include vector data in results.
-func (q *VectorQuery) SetIncludeVector(include bool) error {
+func (q *SearchQuery) SetIncludeVector(include bool) error {
 	return toError(C.zvec_vector_query_set_include_vector(q.handle, C.bool(include)))
 }
 
 // GetIncludeVector returns whether vector data is included in results.
-func (q *VectorQuery) GetIncludeVector() bool {
+func (q *SearchQuery) GetIncludeVector() bool {
 	return bool(C.zvec_vector_query_get_include_vector(q.handle))
 }
 
 // SetIncludeDocID sets whether to include document ID in results.
-func (q *VectorQuery) SetIncludeDocID(include bool) error {
+func (q *SearchQuery) SetIncludeDocID(include bool) error {
 	return toError(C.zvec_vector_query_set_include_doc_id(q.handle, C.bool(include)))
 }
 
 // GetIncludeDocID returns whether document ID is included in results.
-func (q *VectorQuery) GetIncludeDocID() bool {
+func (q *SearchQuery) GetIncludeDocID() bool {
 	return bool(C.zvec_vector_query_get_include_doc_id(q.handle))
 }
 
 // SetOutputFields sets the output fields for the query.
-func (q *VectorQuery) SetOutputFields(fields []string) error {
+func (q *SearchQuery) SetOutputFields(fields []string) error {
 	if len(fields) == 0 {
 		return nil
 	}
@@ -211,7 +252,7 @@ func (q *VectorQuery) SetOutputFields(fields []string) error {
 
 // SetHNSWParams sets the HNSW query parameters.
 // Note: ownership of params is transferred to the query.
-func (q *VectorQuery) SetHNSWParams(params *HNSWQueryParams) error {
+func (q *SearchQuery) SetHNSWParams(params *HNSWQueryParams) error {
 	err := toError(C.zvec_vector_query_set_hnsw_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred
@@ -220,7 +261,7 @@ func (q *VectorQuery) SetHNSWParams(params *HNSWQueryParams) error {
 }
 
 // SetIVFParams sets the IVF query parameters.
-func (q *VectorQuery) SetIVFParams(params *IVFQueryParams) error {
+func (q *SearchQuery) SetIVFParams(params *IVFQueryParams) error {
 	err := toError(C.zvec_vector_query_set_ivf_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred
@@ -229,7 +270,7 @@ func (q *VectorQuery) SetIVFParams(params *IVFQueryParams) error {
 }
 
 // SetFlatParams sets the Flat query parameters.
-func (q *VectorQuery) SetFlatParams(params *FlatQueryParams) error {
+func (q *SearchQuery) SetFlatParams(params *FlatQueryParams) error {
 	err := toError(C.zvec_vector_query_set_flat_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred
@@ -237,22 +278,49 @@ func (q *VectorQuery) SetFlatParams(params *FlatQueryParams) error {
 	return err
 }
 
-// GroupByVectorQuery represents a group-by vector query operation.
-type GroupByVectorQuery struct {
+// SetFTSParams sets the FTS query parameters.
+// Ownership of params is transferred to the query on success.
+func (q *SearchQuery) SetFTSParams(params *FTSQueryParams) error {
+	err := toError(C.zvec_vector_query_set_fts_params(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil // ownership transferred
+	}
+	return err
+}
+
+// SetFTS sets the FTS query payload on this query. The payload is copied;
+// the caller retains ownership of fts.
+func (q *SearchQuery) SetFTS(fts *FTS) error {
+	return toError(C.zvec_vector_query_set_fts(q.handle, fts.handle))
+}
+
+// GetFTS returns the FTS query payload attached to this query.
+// Returns nil if no FTS payload is attached.
+// The returned FTS is owned by the query and must NOT be destroyed by the caller.
+func (q *SearchQuery) GetFTS() *FTS {
+	handle := C.zvec_vector_query_get_fts(q.handle)
+	if handle == nil {
+		return nil
+	}
+	return &FTS{handle: (*C.zvec_fts_t)(unsafe.Pointer(handle)), owned: false}
+}
+
+// GroupBySearchQuery represents a group-by vector query operation.
+type GroupBySearchQuery struct {
 	handle *C.zvec_group_by_vector_query_t
 }
 
-// NewGroupByVectorQuery creates a new group-by vector query instance.
-func NewGroupByVectorQuery() *GroupByVectorQuery {
+// NewGroupBySearchQuery creates a new group-by vector query instance.
+func NewGroupBySearchQuery() *GroupBySearchQuery {
 	handle := C.zvec_group_by_vector_query_create()
 	if handle == nil {
 		return nil
 	}
-	return &GroupByVectorQuery{handle: handle}
+	return &GroupBySearchQuery{handle: handle}
 }
 
 // Destroy releases the group-by vector query resources.
-func (q *GroupByVectorQuery) Destroy() {
+func (q *GroupBySearchQuery) Destroy() {
 	if q.handle != nil {
 		C.zvec_group_by_vector_query_destroy(q.handle)
 		q.handle = nil
@@ -260,33 +328,33 @@ func (q *GroupByVectorQuery) Destroy() {
 }
 
 // SetFieldName sets the field name for the vector query.
-func (q *GroupByVectorQuery) SetFieldName(name string) error {
+func (q *GroupBySearchQuery) SetFieldName(name string) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	return toError(C.zvec_group_by_vector_query_set_field_name(q.handle, cName))
 }
 
 // SetGroupByFieldName sets the group-by field name.
-func (q *GroupByVectorQuery) SetGroupByFieldName(name string) error {
+func (q *GroupBySearchQuery) SetGroupByFieldName(name string) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	return toError(C.zvec_group_by_vector_query_set_group_by_field_name(q.handle, cName))
 }
 
 // SetGroupCount sets the group count parameter.
-func (q *GroupByVectorQuery) SetGroupCount(count uint32) error {
+func (q *GroupBySearchQuery) SetGroupCount(count uint32) error {
 	return toError(C.zvec_group_by_vector_query_set_group_count(q.handle, C.uint32_t(count)))
 }
 
 // SetGroupTopK sets the group top-k parameter.
-func (q *GroupByVectorQuery) SetGroupTopK(topk uint32) error {
+func (q *GroupBySearchQuery) SetGroupTopK(topk uint32) error {
 	return toError(C.zvec_group_by_vector_query_set_group_topk(q.handle, C.uint32_t(topk)))
 }
 
 // SetQueryVector sets the query vector data.
-func (q *GroupByVectorQuery) SetQueryVector(data []float32) error {
+func (q *GroupBySearchQuery) SetQueryVector(data []float32) error {
 	if len(data) == 0 {
-		return &Error{Code: ErrInvalidArgument, Message: "query vector cannot be empty"}
+		return &Error{Code: InvalidArgument, Message: "query vector cannot be empty"}
 	}
 	return toError(C.zvec_group_by_vector_query_set_query_vector(
 		q.handle,
@@ -296,19 +364,19 @@ func (q *GroupByVectorQuery) SetQueryVector(data []float32) error {
 }
 
 // SetFilter sets the filter expression for the query.
-func (q *GroupByVectorQuery) SetFilter(filter string) error {
+func (q *GroupBySearchQuery) SetFilter(filter string) error {
 	cFilter := C.CString(filter)
 	defer C.free(unsafe.Pointer(cFilter))
 	return toError(C.zvec_group_by_vector_query_set_filter(q.handle, cFilter))
 }
 
 // SetIncludeVector sets whether to include vector data in results.
-func (q *GroupByVectorQuery) SetIncludeVector(include bool) error {
+func (q *GroupBySearchQuery) SetIncludeVector(include bool) error {
 	return toError(C.zvec_group_by_vector_query_set_include_vector(q.handle, C.bool(include)))
 }
 
 // SetOutputFields sets the output fields for the query.
-func (q *GroupByVectorQuery) SetOutputFields(fields []string) error {
+func (q *GroupBySearchQuery) SetOutputFields(fields []string) error {
 	if len(fields) == 0 {
 		return nil
 	}
@@ -329,7 +397,7 @@ func (q *GroupByVectorQuery) SetOutputFields(fields []string) error {
 }
 
 // SetHNSWParams sets the HNSW query parameters.
-func (q *GroupByVectorQuery) SetHNSWParams(params *HNSWQueryParams) error {
+func (q *GroupBySearchQuery) SetHNSWParams(params *HNSWQueryParams) error {
 	err := toError(C.zvec_group_by_vector_query_set_hnsw_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred
@@ -338,7 +406,7 @@ func (q *GroupByVectorQuery) SetHNSWParams(params *HNSWQueryParams) error {
 }
 
 // SetIVFParams sets the IVF query parameters.
-func (q *GroupByVectorQuery) SetIVFParams(params *IVFQueryParams) error {
+func (q *GroupBySearchQuery) SetIVFParams(params *IVFQueryParams) error {
 	err := toError(C.zvec_group_by_vector_query_set_ivf_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred
@@ -347,7 +415,7 @@ func (q *GroupByVectorQuery) SetIVFParams(params *IVFQueryParams) error {
 }
 
 // SetFlatParams sets the Flat query parameters.
-func (q *GroupByVectorQuery) SetFlatParams(params *FlatQueryParams) error {
+func (q *GroupBySearchQuery) SetFlatParams(params *FlatQueryParams) error {
 	err := toError(C.zvec_group_by_vector_query_set_flat_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred

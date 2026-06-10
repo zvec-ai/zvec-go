@@ -48,7 +48,10 @@ func main() {
 	// Add ID field
 	idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
 	defer idField.Destroy()
-	invertParams := zvec.NewInvertIndexParams(true, false)
+	invertParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create invert index params: %v", err)
+	}
 	defer invertParams.Destroy()
 	if err := idField.SetIndexParams(invertParams); err != nil {
 		log.Fatalf("Failed to set index params for id field: %v", err)
@@ -70,7 +73,10 @@ func main() {
 	// Add embedding field
 	embeddingField := zvec.NewFieldSchema("embedding", zvec.DataTypeVectorFP32, false, 3)
 	defer embeddingField.Destroy()
-	hnswParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW index params: %v", err)
+	}
 	defer hnswParams.Destroy()
 	if err := embeddingField.SetIndexParams(hnswParams); err != nil {
 		log.Fatalf("Failed to set index params for embedding field: %v", err)
@@ -134,7 +140,7 @@ func main() {
 
 	// === Fetch Documents by Primary Key ===
 	fmt.Println("\n--- Fetch Documents by Primary Key ---")
-	fetchedDocs, err := collection.Fetch([]string{"doc1", "doc2"})
+	fetchedDocs, err := collection.Fetch([]string{"doc1", "doc2"}, nil)
 	if err != nil {
 		log.Fatalf("Failed to fetch documents: %v", err)
 	}
@@ -163,7 +169,7 @@ func main() {
 	fmt.Printf("✓ Document updated — Success: %d, Failed: %d\n", result.SuccessCount, result.ErrorCount)
 
 	// Verify update
-	fetchedDoc, err := collection.Fetch([]string{"doc1"})
+	fetchedDoc, err := collection.Fetch([]string{"doc1"}, nil)
 	if err != nil {
 		log.Fatalf("Failed to fetch updated document: %v", err)
 	}
@@ -218,7 +224,7 @@ func main() {
 	fmt.Printf("✓ Document deleted by PK — Success: %d, Failed: %d\n", result.SuccessCount, result.ErrorCount)
 
 	// Verify deletion
-	fetchedAfterDelete, err := collection.Fetch([]string{"doc3"})
+	fetchedAfterDelete, err := collection.Fetch([]string{"doc3"}, nil)
 	if err != nil {
 		log.Fatalf("Failed to fetch after delete: %v", err)
 	}
@@ -239,7 +245,7 @@ func main() {
 	fmt.Printf("✓ Documents deleted by filter '%s'\n", filter)
 
 	// Verify filter deletion
-	fetchedAfterFilterDelete, err := collection.Fetch([]string{"doc2"})
+	fetchedAfterFilterDelete, err := collection.Fetch([]string{"doc2"}, nil)
 	if err != nil {
 		log.Fatalf("Failed to fetch after filter delete: %v", err)
 	}
@@ -259,7 +265,7 @@ func main() {
 
 	// === List Remaining Documents ===
 	fmt.Println("\n--- Remaining Documents ---")
-	query := zvec.NewVectorQuery()
+	query := zvec.NewSearchQuery()
 	defer query.Destroy()
 	query.SetFieldName("embedding")
 	query.SetQueryVector([]float32{0.1, 0.2, 0.3})

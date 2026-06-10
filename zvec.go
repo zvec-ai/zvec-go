@@ -149,13 +149,42 @@ func (c *ConfigData) GetOptimizeThreadCount() uint32 {
 	return uint32(C.zvec_config_data_get_optimize_thread_count(c.handle))
 }
 
+// SetFTSBruteForceByKeysRatio sets the FTS brute force by keys ratio.
+func (c *ConfigData) SetFTSBruteForceByKeysRatio(ratio float32) error {
+	return toError(C.zvec_config_data_set_fts_brute_force_by_keys_ratio(c.handle, C.float(ratio)))
+}
+
+// GetFTSBruteForceByKeysRatio returns the FTS brute force by keys ratio.
+func (c *ConfigData) GetFTSBruteForceByKeysRatio() float32 {
+	return float32(C.zvec_config_data_get_fts_brute_force_by_keys_ratio(c.handle))
+}
+
+// SetJiebaDictDir sets the jieba dictionary directory.
+func (c *ConfigData) SetJiebaDictDir(dir string) error {
+	var cDir *C.char
+	if dir != "" {
+		cDir = C.CString(dir)
+		defer C.free(unsafe.Pointer(cDir))
+	}
+	return toError(C.zvec_config_data_set_jieba_dict_dir(c.handle, cDir))
+}
+
+// GetJiebaDictDir returns the jieba dictionary directory.
+func (c *ConfigData) GetJiebaDictDir() string {
+	return C.GoString(C.zvec_config_data_get_jieba_dict_dir(c.handle))
+}
+
 // SetConsoleLog configures console logging with the specified level.
 func (c *ConfigData) SetConsoleLog(level LogLevel) error {
 	logConfig := C.zvec_config_log_create_console(C.zvec_log_level_t(level))
 	if logConfig == nil {
-		return &Error{Code: ErrInternalError, Message: "failed to create console log config"}
+		return &Error{Code: InternalError, Message: "failed to create console log config"}
 	}
-	return toError(C.zvec_config_data_set_log_config(c.handle, logConfig))
+	err := toError(C.zvec_config_data_set_log_config(c.handle, logConfig))
+	if err != nil {
+		C.zvec_config_log_destroy(logConfig)
+	}
+	return err
 }
 
 // SetFileLog configures file logging.
@@ -173,7 +202,27 @@ func (c *ConfigData) SetFileLog(level LogLevel, dir, basename string, fileSizeMB
 		C.uint32_t(overdueDays),
 	)
 	if logConfig == nil {
-		return &Error{Code: ErrInternalError, Message: "failed to create file log config"}
+		return &Error{Code: InternalError, Message: "failed to create file log config"}
 	}
-	return toError(C.zvec_config_data_set_log_config(c.handle, logConfig))
+	err := toError(C.zvec_config_data_set_log_config(c.handle, logConfig))
+	if err != nil {
+		C.zvec_config_log_destroy(logConfig)
+	}
+	return err
+}
+
+// SetDefaultJiebaDictDir sets the process-wide default jieba dictionary directory.
+// Thread-safe. Pass empty string to clear.
+func SetDefaultJiebaDictDir(dir string) {
+	var cDir *C.char
+	if dir != "" {
+		cDir = C.CString(dir)
+		defer C.free(unsafe.Pointer(cDir))
+	}
+	C.zvec_set_default_jieba_dict_dir(cDir)
+}
+
+// GetDefaultJiebaDictDir returns the process-wide default jieba dictionary directory.
+func GetDefaultJiebaDictDir() string {
+	return C.GoString(C.zvec_get_default_jieba_dict_dir())
 }

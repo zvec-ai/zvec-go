@@ -15,18 +15,24 @@ import (
 type ErrorCode int
 
 const (
-	ErrOK                 ErrorCode = 0
-	ErrNotFound           ErrorCode = 1
-	ErrAlreadyExists      ErrorCode = 2
-	ErrInvalidArgument    ErrorCode = 3
-	ErrPermissionDenied   ErrorCode = 4
-	ErrFailedPrecondition ErrorCode = 5
-	ErrResourceExhausted  ErrorCode = 6
-	ErrUnavailable        ErrorCode = 7
-	ErrInternalError      ErrorCode = 8
-	ErrNotSupported       ErrorCode = 9
-	ErrUnknown            ErrorCode = 10
+	OK                 ErrorCode = 0
+	NotFound           ErrorCode = 1
+	AlreadyExists      ErrorCode = 2
+	InvalidArgument    ErrorCode = 3
+	PermissionDenied   ErrorCode = 4
+	FailedPrecondition ErrorCode = 5
+	ResourceExhausted  ErrorCode = 6
+	Unavailable        ErrorCode = 7
+	InternalError      ErrorCode = 8
+	NotSupported       ErrorCode = 9
+	Unknown            ErrorCode = 10
 )
+
+// String returns the string representation of the error code.
+func (c ErrorCode) String() string {
+	cStr := C.zvec_error_code_to_string(C.zvec_error_code_t(c))
+	return C.GoString(cStr)
+}
 
 // Error represents a zvec error with code and message.
 type Error struct {
@@ -35,39 +41,39 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("zvec error %d: %s", e.Code, e.Message)
+	return fmt.Sprintf("zvec error [%s]: %s", e.Code, e.Message)
 }
 
 // Sentinel errors for common error codes.
 var (
-	ErrNotFoundError           = &Error{Code: ErrNotFound, Message: "resource not found"}
-	ErrAlreadyExistsError      = &Error{Code: ErrAlreadyExists, Message: "resource already exists"}
-	ErrInvalidArgumentError    = &Error{Code: ErrInvalidArgument, Message: "invalid argument"}
-	ErrPermissionDeniedError   = &Error{Code: ErrPermissionDenied, Message: "permission denied"}
-	ErrFailedPreconditionError = &Error{Code: ErrFailedPrecondition, Message: "failed precondition"}
-	ErrResourceExhaustedError  = &Error{Code: ErrResourceExhausted, Message: "resource exhausted"}
-	ErrUnavailableError        = &Error{Code: ErrUnavailable, Message: "unavailable"}
-	ErrInternalErrorError      = &Error{Code: ErrInternalError, Message: "internal error"}
-	ErrNotSupportedError       = &Error{Code: ErrNotSupported, Message: "not supported"}
-	ErrUnknownError            = &Error{Code: ErrUnknown, Message: "unknown error"}
+	ErrNotFound           = &Error{Code: NotFound, Message: "resource not found"}
+	ErrAlreadyExists      = &Error{Code: AlreadyExists, Message: "resource already exists"}
+	ErrInvalidArgument    = &Error{Code: InvalidArgument, Message: "invalid argument"}
+	ErrPermissionDenied   = &Error{Code: PermissionDenied, Message: "permission denied"}
+	ErrFailedPrecondition = &Error{Code: FailedPrecondition, Message: "failed precondition"}
+	ErrResourceExhausted  = &Error{Code: ResourceExhausted, Message: "resource exhausted"}
+	ErrUnavailable        = &Error{Code: Unavailable, Message: "unavailable"}
+	ErrInternalError      = &Error{Code: InternalError, Message: "internal error"}
+	ErrNotSupported       = &Error{Code: NotSupported, Message: "not supported"}
+	ErrUnknown            = &Error{Code: Unknown, Message: "unknown error"}
 )
 
 // IsNotFound checks if the error is a not found error.
 func IsNotFound(err error) bool {
 	var zvecErr *Error
-	return errors.As(err, &zvecErr) && zvecErr.Code == ErrNotFound
+	return errors.As(err, &zvecErr) && zvecErr.Code == NotFound
 }
 
 // IsAlreadyExists checks if the error is an already exists error.
 func IsAlreadyExists(err error) bool {
 	var zvecErr *Error
-	return errors.As(err, &zvecErr) && zvecErr.Code == ErrAlreadyExists
+	return errors.As(err, &zvecErr) && zvecErr.Code == AlreadyExists
 }
 
 // IsInvalidArgument checks if the error is an invalid argument error.
 func IsInvalidArgument(err error) bool {
 	var zvecErr *Error
-	return errors.As(err, &zvecErr) && zvecErr.Code == ErrInvalidArgument
+	return errors.As(err, &zvecErr) && zvecErr.Code == InvalidArgument
 }
 
 // toError converts a C error code to a Go error.
@@ -94,10 +100,4 @@ func toError(code C.zvec_error_code_t) error {
 		Code:    ErrorCode(code),
 		Message: message,
 	}
-}
-
-// errorCodeToString converts an error code to its string representation.
-func errorCodeToString(code ErrorCode) string {
-	cStr := C.zvec_error_code_to_string(C.zvec_error_code_t(code))
-	return C.GoString(cStr)
 }

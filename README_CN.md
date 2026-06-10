@@ -62,11 +62,11 @@ cd zvec-go
 
 # 2. 下载当前平台的预编译库
 #    （从 GitHub Releases 下载，解压到 lib/ 目录）
-go run ./cmd/download-libs -version v0.3.1
+go run ./cmd/download-libs -version v0.5.0
 
 # 在您的项目中使用 replace 指令
 # 在您项目的 go.mod 中：
-#   require github.com/zvec-ai/zvec-go v0.3.1
+#   require github.com/zvec-ai/zvec-go v0.5.0
 #   replace github.com/zvec-ai/zvec-go => /path/to/zvec-go
 
 # 3. 构建（需要 cgo）
@@ -80,7 +80,7 @@ CGO_ENABLED=1 go build .
 go get github.com/zvec-ai/zvec-go
 
 # 2. 手动从 GitHub Releases 下载预编译库：
-#    https://github.com/zvec-ai/zvec-go/releases/download/v0.3.1/zvec-libs-darwin-arm64.tar.gz
+#    https://github.com/zvec-ai/zvec-go/releases/download/v0.5.0/zvec-libs-darwin-arm64.tar.gz
 #    解压到您项目的 lib/ 目录
 
 # 3. 构建（需要 cgo）
@@ -150,12 +150,14 @@ func main() {
 
     // 添加 ID 字段（主键，使用倒排索引）
     idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
-    idField.SetIndexParams(zvec.NewInvertIndexParams(true, false))
+    invertParams, _ := zvec.NewInvertIndexParams(true, false)
+    idField.SetIndexParams(invertParams)
     schema.AddField(idField)
 
     // 添加向量字段（使用 HNSW 索引）
     embField := zvec.NewFieldSchema("embedding", zvec.DataTypeVectorFP32, false, 4)
-    embField.SetIndexParams(zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200))
+    hnswParams, _ := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+    embField.SetIndexParams(hnswParams)
     schema.AddField(embField)
 
     // 创建并打开集合
@@ -174,7 +176,7 @@ func main() {
     doc.Destroy()
 
     // 向量查询
-    query := zvec.NewVectorQuery()
+    query := zvec.NewSearchQuery()
     query.SetFieldName("embedding")
     query.SetQueryVector([]float32{0.4, 0.3, 0.3, 0.1})
     query.SetTopK(10)
@@ -214,6 +216,7 @@ func main() {
 | `NewIVFIndexParams(metricType, nlist, nIters, useSoar)` | 创建 IVF 索引参数 |
 | `NewFlatIndexParams(metricType)` | 创建 Flat 索引参数 |
 | `NewInvertIndexParams(enable, wildcard)` | 创建倒排索引参数 |
+| `NewFTSIndexParams(tokenizer, filters, extra)` | 创建全文搜索索引参数 |
 | `SetIndexParams(params)` | 设置字段索引参数 |
 
 ### 集合操作
@@ -269,7 +272,7 @@ func main() {
 
 | API | 说明 |
 |-----|------|
-| `NewVectorQuery()` | 创建向量查询对象 |
+| `NewSearchQuery()` | 创建搜索查询对象 |
 | `SetFieldName(name)` | 设置查询字段名 |
 | `SetQueryVector(vector)` | 设置查询向量 |
 | `SetTopK(k)` | 设置返回结果数量 |
@@ -278,9 +281,31 @@ func main() {
 | `SetIncludeVector(include)` | 是否包含向量数据 |
 | `SetIncludeDocID(include)` | 是否包含文档 ID |
 | `Query(query)` | 执行查询 |
-| `GroupByVectorQuery(query)` | 分组向量查询 |
-| `Fetch(pks)` | 根据主键获取文档 |
+| `GroupBySearchQuery(query)` | 分组搜索查询 |
+| `Fetch(pks, opts)` | 根据主键获取文档 |
+| `MultiQuery(query)` | 执行多路查询 |
 | `FreeDocs(docs)` | 释放查询结果内存 |
+
+### 全文搜索 (FTS)
+
+| API | 说明 |
+|-----|------|
+| `NewFTS()` | 创建 FTS 查询载荷 |
+| `SetQueryString(query)` | 设置 FTS 布尔/高级查询表达式 |
+| `SetMatchString(match)` | 设置 FTS 自然语言匹配字符串 |
+| `NewFTSQueryParams(op)` | 创建 FTS 查询参数 |
+| `SearchQuery.SetFTS(fts)` | 在搜索查询上附加 FTS 载荷 |
+| `SearchQuery.SetFTSParams(params)` | 设置 FTS 查询参数 |
+
+### 多路查询与重排序
+
+| API | 说明 |
+|-----|------|
+| `NewMultiQuery()` | 创建多路查询（组合多个子查询） |
+| `AddSubQuery(sub)` | 添加子查询（复制语义） |
+| `SetRerankRRF(rankConstant)` | 设置 RRF 重排序策略 |
+| `SetRerankWeighted(weights)` | 设置加权重排序策略 |
+| `NewSubQuery()` | 创建子查询 |
 
 ### 数据类型
 
@@ -332,6 +357,7 @@ func main() {
 - **examples/collection_management** — 集合管理示例，展示集合的创建、打开、优化等操作
 - **examples/error_handling** — 错误处理示例，展示如何正确处理各种错误情况
 - **examples/configuration** — 全局配置示例，展示内存限制、线程数等配置选项的使用
+- **examples/fts_query** — 全文搜索示例，展示 FTS 索引创建、文本插入和 FTS 查询
 
 运行示例：
 

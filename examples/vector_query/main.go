@@ -8,7 +8,7 @@
 // - Include vectors and document IDs in results
 // - Use HNSW query parameters (ef, radius)
 // - Use IVF query parameters (nprobe)
-// - Use GroupByVectorQuery for grouping results
+// - Use GroupBySearchQuery for grouping results
 //
 // Before running this example, build the zvec C-API library:
 //
@@ -49,7 +49,10 @@ func main() {
 	// Add ID field
 	idField := zvec.NewFieldSchema("id", zvec.DataTypeString, false, 0)
 	defer idField.Destroy()
-	invertParams := zvec.NewInvertIndexParams(true, false)
+	invertParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create invert index params: %v", err)
+	}
 	defer invertParams.Destroy()
 	if err := idField.SetIndexParams(invertParams); err != nil {
 		log.Fatalf("Failed to set index params for id field: %v", err)
@@ -71,7 +74,10 @@ func main() {
 	// Add embedding field
 	embeddingField := zvec.NewFieldSchema("embedding", zvec.DataTypeVectorFP32, false, 128)
 	defer embeddingField.Destroy()
-	hnswParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW index params: %v", err)
+	}
 	defer hnswParams.Destroy()
 	if err := embeddingField.SetIndexParams(hnswParams); err != nil {
 		log.Fatalf("Failed to set index params for embedding field: %v", err)
@@ -124,7 +130,7 @@ func main() {
 
 	// === Example 1: Basic Vector Query ===
 	fmt.Println("\n--- Example 1: Basic Vector Query ---")
-	query := zvec.NewVectorQuery()
+	query := zvec.NewSearchQuery()
 	defer query.Destroy()
 	query.SetFieldName("embedding")
 	query.SetTopK(3)
@@ -154,7 +160,7 @@ func main() {
 
 	// === Example 2: Query with Filter ===
 	fmt.Println("\n--- Example 2: Query with Filter ---")
-	queryWithFilter := zvec.NewVectorQuery()
+	queryWithFilter := zvec.NewSearchQuery()
 	defer queryWithFilter.Destroy()
 	queryWithFilter.SetFieldName("embedding")
 	queryWithFilter.SetTopK(10)
@@ -177,7 +183,7 @@ func main() {
 
 	// === Example 3: Query with Output Fields ===
 	fmt.Println("\n--- Example 3: Query with Output Fields ---")
-	queryWithOutput := zvec.NewVectorQuery()
+	queryWithOutput := zvec.NewSearchQuery()
 	defer queryWithOutput.Destroy()
 	queryWithOutput.SetFieldName("embedding")
 	queryWithOutput.SetTopK(3)
@@ -203,7 +209,7 @@ func main() {
 
 	// === Example 4: Query with Include Vector ===
 	fmt.Println("\n--- Example 4: Query with Include Vector ---")
-	queryWithVector := zvec.NewVectorQuery()
+	queryWithVector := zvec.NewSearchQuery()
 	defer queryWithVector.Destroy()
 	queryWithVector.SetFieldName("embedding")
 	queryWithVector.SetTopK(2)
@@ -227,7 +233,7 @@ func main() {
 
 	// === Example 5: Query with HNSW Parameters ===
 	fmt.Println("\n--- Example 5: Query with HNSW Parameters ---")
-	queryWithHNSW := zvec.NewVectorQuery()
+	queryWithHNSW := zvec.NewSearchQuery()
 	defer queryWithHNSW.Destroy()
 	queryWithHNSW.SetFieldName("embedding")
 	queryWithHNSW.SetTopK(3)
@@ -255,7 +261,7 @@ func main() {
 
 	// === Example 6: Query with IVF Parameters ===
 	fmt.Println("\n--- Example 6: Query with IVF Parameters ---")
-	queryWithIVF := zvec.NewVectorQuery()
+	queryWithIVF := zvec.NewSearchQuery()
 	defer queryWithIVF.Destroy()
 	queryWithIVF.SetFieldName("embedding")
 	queryWithIVF.SetTopK(3)
@@ -281,9 +287,9 @@ func main() {
 		fmt.Printf("  %d. PK=%s, Score=%.4f\n", i+1, pk, doc.GetScore())
 	}
 
-	// === Example 7: GroupByVectorQuery ===
-	fmt.Println("\n--- Example 7: GroupByVectorQuery ---")
-	groupByQuery := zvec.NewGroupByVectorQuery()
+	// === Example 7: GroupBySearchQuery ===
+	fmt.Println("\n--- Example 7: GroupBySearchQuery ---")
+	groupByQuery := zvec.NewGroupBySearchQuery()
 	defer groupByQuery.Destroy()
 	groupByQuery.SetFieldName("embedding")
 	groupByQuery.SetGroupByFieldName("category")
@@ -294,11 +300,11 @@ func main() {
 	groupByQuery.SetIncludeVector(false)
 	groupByQuery.SetOutputFields([]string{"id", "category"})
 
-	fmt.Println("✓ GroupByVectorQuery configured:")
+	fmt.Println("✓ GroupBySearchQuery configured:")
 	fmt.Println("  - Group by field: category")
 	fmt.Println("  - Group count: 2")
 	fmt.Println("  - Group top-k: 2")
-	fmt.Println("  (Note: GroupByVectorQuery uses a separate query API — see collection_management example)")
+	fmt.Println("  (Note: GroupBySearchQuery uses a separate query API — see collection_management example)")
 
 	fmt.Println()
 	fmt.Println("✓ Vector Query example completed successfully!")

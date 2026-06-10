@@ -3,7 +3,9 @@
 package zvec
 
 import (
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -11,8 +13,8 @@ import (
 func createTestSchema() *CollectionSchema {
 	schema := NewCollectionSchema("test_collection")
 
-	invertParams := NewInvertIndexParams(true, false)
-	hnswParams := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
+	invertParams, _ := NewInvertIndexParams(true, false)
+	hnswParams, _ := NewHNSWIndexParams(MetricTypeCosine, 16, 200)
 
 	idField := NewFieldSchema("id", DataTypeString, false, 0)
 	_ = idField.SetIndexParams(invertParams)
@@ -605,7 +607,7 @@ func TestCollectionQuery(t *testing.T) {
 	}
 
 	// Create a query
-	query := NewVectorQuery()
+	query := NewSearchQuery()
 	defer query.Destroy()
 
 	_ = query.SetFieldName("embedding")
@@ -664,7 +666,7 @@ func TestCollectionFetch(t *testing.T) {
 	}
 
 	// Fetch documents
-	fetchedDocs, err := collection.Fetch([]string{"doc1", "doc2"})
+	fetchedDocs, err := collection.Fetch([]string{"doc1", "doc2"}, nil)
 	if err != nil {
 		t.Fatalf("Fetch() failed: %v", err)
 	}
@@ -703,7 +705,7 @@ func TestCollectionFetchEmpty(t *testing.T) {
 	}
 	defer func() { _ = collection.Close() }()
 
-	result, err := collection.Fetch([]string{})
+	result, err := collection.Fetch([]string{}, nil)
 	if err != nil {
 		t.Fatalf("Fetch() failed: %v", err)
 	}
@@ -780,7 +782,7 @@ func TestCollectionCreateIndex(t *testing.T) {
 	defer func() { _ = collection.Close() }()
 
 	// Create index on text field
-	indexParams := NewInvertIndexParams(true, false)
+	indexParams, _ := NewInvertIndexParams(true, false)
 	defer indexParams.Destroy()
 
 	if err := collection.CreateIndex("text", indexParams); err != nil {
@@ -802,7 +804,7 @@ func TestCollectionDropIndex(t *testing.T) {
 	defer func() { _ = collection.Close() }()
 
 	// Create index first
-	indexParams := NewInvertIndexParams(true, false)
+	indexParams, _ := NewInvertIndexParams(true, false)
 	defer indexParams.Destroy()
 
 	if err := collection.CreateIndex("text", indexParams); err != nil {
@@ -929,4 +931,220 @@ func TestCollectionAlterColumnWithSchema(t *testing.T) {
 	if err := collection.AlterColumn("score", "", newSchema); err != nil {
 		t.Errorf("AlterColumn() with schema failed: %v", err)
 	}
+}
+
+// --- Goroutine Concurrency Tests ---
+
+func TestConcurrentInserts(t *testing.T) {
+	schema := createTestSchema()
+	defer schema.Destroy()
+
+	tmpDir := testTempDir(t)
+	path := filepath.Join(tmpDir, "concurrent_insert")
+
+	collection, err := CreateAndOpen(path, schema, nil)
+	if err != nil {
+		t.Fatalf("CreateAndOpen() failed: %v", err)
+	}
+	defer func() { _ = collection.Close() }()
+
+	const goroutines = 4
+	const docsPerGoroutine = 25
+	var wg sync.WaitGroup
+
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for i := 0; i < docsPerGoroutine; i++ {
+				pk := fmt.Sprintf("g%d_doc%d", id, i)
+				doc := createTestDoc(pk, "text", []float32{float32(id) * 0.1, float32(i) * 0.1, 0.3, 0.4})
+				_, insertErr := collection.Insert([]*Doc{doc})
+				doc.Destroy()
+				if insertErr != nil {
+					t.Errorf("goroutine %d: Insert failed: %v", id, insertErr)
+					return
+				}
+			}
+		}(g)
+	}
+	wg.Wait()
+
+	if err := collection.Flush(); err != nil {
+		t.Fatalf("Flush() failed: %v", err)
+	}
+
+	stats, err := collection.GetStats()
+	if err != nil {
+		t.Fatalf("GetStats() failed: %v", err)
+	}
+	expected := uint64(goroutines * docsPerGoroutine)
+	if stats.DocCount != expected {
+		t.Errorf("DocCount = %d, want %d", stats.DocCount, expected)
+	}
+}
+
+func TestConcurrentQueries(t *testing.T) {
+	schema := createTestSchema()
+	defer schema.Destroy()
+
+	tmpDir := testTempDir(t)
+	path := filepath.Join(tmpDir, "concurrent_query")
+
+	collection, err := CreateAndOpen(path, schema, nil)
+	if err != nil {
+		t.Fatalf("CreateAndOpen() failed: %v", err)
+	}
+	defer func() { _ = collection.Close() }()
+
+	for i := 0; i < 50; i++ {
+		pk := fmt.Sprintf("doc%d", i)
+		doc := createTestDoc(pk, "text", []float32{float32(i) * 0.01, 0.2, 0.3, 0.4})
+		if _, err := collection.Insert([]*Doc{doc}); err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+		doc.Destroy()
+	}
+	if err := collection.Flush(); err != nil {
+		t.Fatalf("Flush() failed: %v", err)
+	}
+
+	const goroutines = 8
+	var wg sync.WaitGroup
+
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			query := NewSearchQuery()
+			defer query.Destroy()
+			_ = query.SetFieldName("embedding")
+			_ = query.SetTopK(5)
+			_ = query.SetQueryVector([]float32{float32(id) * 0.1, 0.2, 0.3, 0.4})
+
+			results, queryErr := collection.Query(query)
+			if queryErr != nil {
+				t.Errorf("goroutine %d: Query failed: %v", id, queryErr)
+				return
+			}
+			if len(results) == 0 {
+				t.Errorf("goroutine %d: Query returned 0 results", id)
+			}
+			FreeDocs(results)
+		}(g)
+	}
+	wg.Wait()
+}
+
+func TestConcurrentFetches(t *testing.T) {
+	schema := createTestSchema()
+	defer schema.Destroy()
+
+	tmpDir := testTempDir(t)
+	path := filepath.Join(tmpDir, "concurrent_fetch")
+
+	collection, err := CreateAndOpen(path, schema, nil)
+	if err != nil {
+		t.Fatalf("CreateAndOpen() failed: %v", err)
+	}
+	defer func() { _ = collection.Close() }()
+
+	const docCount = 20
+	for i := 0; i < docCount; i++ {
+		pk := fmt.Sprintf("doc%d", i)
+		doc := createTestDoc(pk, fmt.Sprintf("text %d", i), []float32{float32(i) * 0.05, 0.2, 0.3, 0.4})
+		if _, err := collection.Insert([]*Doc{doc}); err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+		doc.Destroy()
+	}
+	if err := collection.Flush(); err != nil {
+		t.Fatalf("Flush() failed: %v", err)
+	}
+
+	const goroutines = 8
+	var wg sync.WaitGroup
+
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			pk := fmt.Sprintf("doc%d", id%docCount)
+			docs, fetchErr := collection.Fetch([]string{pk}, nil)
+			if fetchErr != nil {
+				t.Errorf("goroutine %d: Fetch failed: %v", id, fetchErr)
+				return
+			}
+			if len(docs) != 1 {
+				t.Errorf("goroutine %d: Fetch returned %d docs, want 1", id, len(docs))
+			}
+			FreeDocs(docs)
+		}(g)
+	}
+	wg.Wait()
+}
+
+func TestConcurrentQueryWhileInserting(t *testing.T) {
+	schema := createTestSchema()
+	defer schema.Destroy()
+
+	tmpDir := testTempDir(t)
+	path := filepath.Join(tmpDir, "concurrent_query_insert")
+
+	collection, err := CreateAndOpen(path, schema, nil)
+	if err != nil {
+		t.Fatalf("CreateAndOpen() failed: %v", err)
+	}
+	defer func() { _ = collection.Close() }()
+
+	for i := 0; i < 20; i++ {
+		pk := fmt.Sprintf("seed%d", i)
+		doc := createTestDoc(pk, "seed", []float32{0.1, 0.2, 0.3, 0.4})
+		if _, err := collection.Insert([]*Doc{doc}); err != nil {
+			t.Fatalf("Seed insert failed: %v", err)
+		}
+		doc.Destroy()
+	}
+	if err := collection.Flush(); err != nil {
+		t.Fatalf("Flush() failed: %v", err)
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 30; i++ {
+			pk := fmt.Sprintf("new%d", i)
+			doc := createTestDoc(pk, "new", []float32{float32(i) * 0.01, 0.2, 0.3, 0.4})
+			_, insertErr := collection.Insert([]*Doc{doc})
+			doc.Destroy()
+			if insertErr != nil {
+				t.Errorf("Insert goroutine: Insert failed: %v", insertErr)
+				return
+			}
+		}
+	}()
+
+	for g := 0; g < 4; g++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for i := 0; i < 10; i++ {
+				query := NewSearchQuery()
+				_ = query.SetFieldName("embedding")
+				_ = query.SetTopK(5)
+				_ = query.SetQueryVector([]float32{0.1, 0.2, 0.3, 0.4})
+
+				results, queryErr := collection.Query(query)
+				query.Destroy()
+				if queryErr != nil {
+					t.Errorf("Query goroutine %d: Query failed: %v", id, queryErr)
+					return
+				}
+				FreeDocs(results)
+			}
+		}(g)
+	}
+	wg.Wait()
 }

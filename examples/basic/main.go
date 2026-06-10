@@ -44,10 +44,16 @@ func main() {
 	defer schema.Destroy()
 
 	// Create index parameters
-	invertParams := zvec.NewInvertIndexParams(true, false)
+	invertParams, err := zvec.NewInvertIndexParams(true, false)
+	if err != nil {
+		log.Fatalf("Failed to create invert index params: %v", err)
+	}
 	defer invertParams.Destroy()
 
-	hnswParams := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	hnswParams, err := zvec.NewHNSWIndexParams(zvec.MetricTypeCosine, 16, 200)
+	if err != nil {
+		log.Fatalf("Failed to create HNSW index params: %v", err)
+	}
 	defer hnswParams.Destroy()
 
 	// Add ID field (primary key with inverted index)
@@ -127,7 +133,7 @@ func main() {
 	fmt.Printf("✓ Collection stats — Document count: %d\n", stats.DocCount)
 
 	// Query documents
-	query := zvec.NewVectorQuery()
+	query := zvec.NewSearchQuery()
 	defer query.Destroy()
 	query.SetFieldName("embedding")
 	query.SetQueryVector([]float32{0.1, 0.2, 0.3})
