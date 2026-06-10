@@ -61,6 +61,28 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Ensure zvec submodule has full history and tags so that
+      # `git describe --tags` in CMake can resolve the correct version.
+      - name: Fetch tags for zvec submodule
+        run: |
+          cd zvec
+          git fetch --tags --unshallow 2>/dev/null || git fetch --tags
+          echo "=== zvec describe ==="
+          git describe --tags || true
+        shell: bash
+        if: runner.os != 'Windows'
+
+      - name: Fetch tags for zvec submodule (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd zvec
+          git fetch --tags --unshallow; if ($LASTEXITCODE -ne 0) { git fetch --tags }
+          Write-Host "=== zvec describe ==="
+          git describe --tags
+        shell: pwsh
 
       - name: Set up Go
         uses: actions/setup-go@v5
