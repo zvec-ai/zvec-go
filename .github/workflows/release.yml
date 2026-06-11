@@ -345,9 +345,8 @@ jobs:
       - name: Generate release notes
         id: notes
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
           cat > release-notes.md << 'NOTES_EOF'
-          ## zvec-go $TAG
+          ## zvec-go ${{ steps.tag.outputs.tag }}
 
           ### Pre-built Libraries
 

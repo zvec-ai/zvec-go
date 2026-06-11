@@ -32,7 +32,7 @@ jobs:
       matrix:
         include:
           - name: macos-arm64
-            runner: macos-15
+            runner: macos-14
           - name: linux-x64
             runner: ubuntu-24.04
           - name: linux-arm64
@@ -219,7 +219,7 @@ jobs:
       matrix:
         include:
           - name: macos-arm64
-            runner: macos-15
+            runner: macos-14
             lib_subdir: darwin_arm64
             lib_ext: dylib
           - name: linux-x64
