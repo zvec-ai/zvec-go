@@ -211,3 +211,25 @@ func (q *SubQuery) SetFlatParams(params *FlatQueryParams) error {
 	}
 	return err
 }
+
+// SetFTSParams sets the FTS query parameters on the sub-query (takes ownership).
+//
+// Available since zvec v0.5.1 (c_api: zvec_sub_query_set_fts_params).
+// This enables FTS as a sub-query inside a MultiQuery, allowing
+// combinations like FTS + Vector rerank via RRF/Weighted.
+// Ownership of params is transferred to the sub-query on success.
+func (q *SubQuery) SetFTSParams(params *FTSQueryParams) error {
+	err := toError(C.zvec_sub_query_set_fts_params(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
+}
+
+// SetFTS attaches an FTS clause to the sub-query. The clause is copied;
+// the caller retains ownership of fts.
+//
+// Available since zvec v0.5.1 (c_api: zvec_sub_query_set_fts).
+func (q *SubQuery) SetFTS(fts *FTS) error {
+	return toError(C.zvec_sub_query_set_fts(q.handle, fts.handle))
+}

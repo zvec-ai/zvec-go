@@ -3,7 +3,7 @@
 #
 # Usage:
 #   ./scripts/sync-zvec.sh                  # update to latest main
-#   ./scripts/sync-zvec.sh v0.5.0           # update to a specific tag/commit
+#   ./scripts/sync-zvec.sh v0.5.1           # update to a specific tag/commit
 #   ./scripts/sync-zvec.sh --check-only     # only check for C-API changes (no update)
 #   ./scripts/sync-zvec.sh --build          # update + rebuild C-API + run tests
 
