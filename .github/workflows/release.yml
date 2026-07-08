@@ -182,10 +182,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path "staging/include/zvec"
 
           # Find and copy DLL
+          # Covers both Multi-Config (Visual Studio: bin/Release/, lib/Release/)
+          # and Single-Config (Ninja: bin/, lib/) generators.
           $dllPaths = @(
+            "zvec/build/bin/Release/zvec_c_api.dll",
+            "zvec/build/bin/zvec_c_api.dll",
             "zvec/build/lib/Release/zvec_c_api.dll",
-            "zvec/build/lib/zvec_c_api.dll",
-            "zvec/build/bin/Release/zvec_c_api.dll"
+            "zvec/build/lib/zvec_c_api.dll"
           )
           $dllFound = $false
           foreach ($path in $dllPaths) {
@@ -197,15 +200,18 @@ jobs:
             }
           }
           if (-not $dllFound) {
+            Write-Host "=== All .dll files under zvec/build/ ==="
+            Get-ChildItem -Recurse zvec/build/ -Filter "*.dll" -ErrorAction SilentlyContinue
             Write-Error "DLL not found in any expected location"
-            Get-ChildItem -Recurse zvec/build/ -Filter "*.dll"
             exit 1
           }
 
           # Find and copy import library (.lib)
           $libPaths = @(
             "zvec/build/lib/Release/zvec_c_api.lib",
-            "zvec/build/lib/zvec_c_api.lib"
+            "zvec/build/lib/zvec_c_api.lib",
+            "zvec/build/bin/Release/zvec_c_api.lib",
+            "zvec/build/bin/zvec_c_api.lib"
           )
           foreach ($path in $libPaths) {
             if (Test-Path $path) {
