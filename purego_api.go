@@ -544,7 +544,15 @@ func NewFlatIndexParams(metric MetricType) (*IndexParams, error) {
 }
 
 func NewFTSIndexParams(tokenizerName string, filters []string, extraParams string) (*IndexParams, error) {
-	return nil, unsupportedError("NewFTSIndexParams")
+	params, err := newIndexParams(IndexTypeFTS)
+	if err != nil {
+		return nil, err
+	}
+	if err := params.SetFTSParams(tokenizerName, filters, extraParams); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
 }
 
 func (p *IndexParams) Destroy() {
@@ -641,11 +649,56 @@ func (p *IndexParams) SetInvertParams(enableRangeOpt, enableWildcard bool) error
 }
 
 func (p *IndexParams) SetFTSParams(tokenizerName string, filters []string, extraParams string) error {
-	return unsupportedError("IndexParams.SetFTSParams")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if p == nil || p.handle == nil {
+		return invalidArgumentError("index params is nil")
+	}
+
+	tokenizerBuf, cTokenizer := optionalCString(tokenizerName)
+	extraBuf, cExtra := optionalCString(extraParams)
+	var cFilters unsafe.Pointer
+	if len(filters) > 0 {
+		cFilters = api.stringArrayCreate(uintptr(len(filters)))
+		if cFilters == nil {
+			return &Error{Code: InternalError, Message: "failed to create FTS filter array"}
+		}
+		defer api.stringArrayDestroy(cFilters)
+		for i, filter := range filters {
+			api.stringArrayAdd(cFilters, uintptr(i), filter)
+		}
+	}
+
+	err = toError(api.indexParamsSetFTSParams(p.handle, cTokenizer, cFilters, cExtra))
+	runtime.KeepAlive(tokenizerBuf)
+	runtime.KeepAlive(extraBuf)
+	return err
 }
 
 func (p *IndexParams) GetFTSParams() (tokenizerName string, filters []string, extraParams string, err error) {
-	err = unsupportedError("IndexParams.GetFTSParams")
+	api, apiErr := puregoAPI()
+	if apiErr != nil {
+		err = apiErr
+		return
+	}
+	if p == nil || p.handle == nil {
+		err = invalidArgumentError("index params is nil")
+		return
+	}
+
+	var cTokenizer, cFilters, cExtra unsafe.Pointer
+	err = toError(api.indexParamsGetFTSParams(p.handle, &cTokenizer, &cFilters, &cExtra))
+	if err != nil {
+		return
+	}
+	tokenizerName = cStringFromPointer(cTokenizer)
+	extraParams = cStringFromPointer(cExtra)
+	if cFilters != nil {
+		defer api.stringArrayDestroy(cFilters)
+		filters = readZvecStringArray(cFilters)
+	}
 	return
 }
 
@@ -1152,7 +1205,19 @@ func (c *Collection) Query(query *SearchQuery) ([]*Doc, error) {
 }
 
 func (c *Collection) MultiQuery(query *MultiQuery) ([]*Doc, error) {
-	return nil, unsupportedError("Collection.MultiQuery")
+	if query == nil || query.handle == nil {
+		return nil, invalidArgumentError("multi query is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return nil, err
+	}
+	var cResults unsafe.Pointer
+	var resultCount uintptr
+	if err := toError(api.collectionMultiQuery(c.handle, query.handle, &cResults, &resultCount)); err != nil {
+		return nil, err
+	}
+	return wrapDocResults(cResults, resultCount), nil
 }
 
 type FetchOptions struct {
@@ -1608,32 +1673,50 @@ func (p *FlatQueryParams) Destroy() {
 	}
 }
 
-// FTSQueryParams is not part of the initial purego POC binding.
 type FTSQueryParams struct {
-	handle          unsafe.Pointer
-	defaultOperator string
+	handle unsafe.Pointer
 }
 
 func NewFTSQueryParams(defaultOperator string) *FTSQueryParams {
-	return &FTSQueryParams{defaultOperator: defaultOperator}
+	api, err := puregoAPI()
+	if err != nil {
+		return nil
+	}
+	opBuf, cOp := optionalCString(defaultOperator)
+	handle := api.ftsQueryParamsCreate(cOp)
+	runtime.KeepAlive(opBuf)
+	if handle == nil {
+		return nil
+	}
+	return &FTSQueryParams{handle: handle}
 }
 
 func (p *FTSQueryParams) Destroy() {
-	if p != nil {
+	if p != nil && p.handle != nil {
+		if api, err := puregoAPI(); err == nil {
+			api.ftsQueryParamsDestroy(p.handle)
+		}
 		p.handle = nil
 	}
 }
 
 func (p *FTSQueryParams) SetDefaultOperator(op string) error {
-	p.defaultOperator = op
-	return nil
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if p == nil || p.handle == nil {
+		return invalidArgumentError("FTS query params is nil")
+	}
+	return toError(api.ftsQueryParamsSetOp(p.handle, op))
 }
 
 func (p *FTSQueryParams) GetDefaultOperator() string {
-	if p == nil {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
 		return ""
 	}
-	return p.defaultOperator
+	return api.ftsQueryParamsGetOp(p.handle)
 }
 
 // SearchQuery represents a vector query operation.
@@ -1811,19 +1894,41 @@ func (q *SearchQuery) SetFlatParams(params *FlatQueryParams) error {
 }
 
 func (q *SearchQuery) SetFTSParams(params *FTSQueryParams) error {
-	return unsupportedError("SearchQuery.SetFTSParams")
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("FTS query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.vectorQuerySetFTSParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
 }
 
 func (q *SearchQuery) SetFTS(fts *FTS) error {
-	q.fts = fts
-	return unsupportedError("SearchQuery.SetFTS")
+	if fts == nil || fts.handle == nil {
+		return invalidArgumentError("FTS payload is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.vectorQuerySetFTS(q.handle, fts.handle))
 }
 
 func (q *SearchQuery) GetFTS() *FTS {
-	if q == nil {
+	api, err := puregoAPI()
+	if err != nil || q == nil || q.handle == nil {
 		return nil
 	}
-	return q.fts
+	handle := api.vectorQueryGetFTS(q.handle)
+	if handle == nil {
+		return nil
+	}
+	return &FTS{handle: handle, owned: false}
 }
 
 // GroupBySearchQuery is not part of the initial purego POC binding.
@@ -1873,78 +1978,201 @@ func (q *GroupBySearchQuery) SetFlatParams(params *FlatQueryParams) error {
 	return unsupportedError("GroupBySearchQuery.SetFlatParams")
 }
 
-// MultiQuery is not part of the initial purego POC binding.
 type MultiQuery struct {
-	handle        unsafe.Pointer
-	topK          int
-	filter        string
-	includeVector bool
-	subQueries    int
+	handle unsafe.Pointer
 }
 
 func NewMultiQuery() *MultiQuery {
-	return &MultiQuery{}
+	api, err := puregoAPI()
+	if err != nil {
+		return nil
+	}
+	handle := api.multiQueryCreate()
+	if handle == nil {
+		return nil
+	}
+	return &MultiQuery{handle: handle}
 }
 
-func (q *MultiQuery) Destroy() { q.handle = nil }
+func (q *MultiQuery) Destroy() {
+	if q != nil && q.handle != nil {
+		if api, err := puregoAPI(); err == nil {
+			api.multiQueryDestroy(q.handle)
+		}
+		q.handle = nil
+	}
+}
+
 func (q *MultiQuery) AddSubQuery(sub *SubQuery) error {
-	q.subQueries++
-	return unsupportedError("MultiQuery.AddSubQuery")
+	if sub == nil || sub.handle == nil {
+		return invalidArgumentError("sub query is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.multiQueryAddSubQuery(q.handle, sub.handle))
 }
-func (q *MultiQuery) GetSubQueryCount() int { return q.subQueries }
+
+func (q *MultiQuery) GetSubQueryCount() int {
+	api, err := puregoAPI()
+	if err != nil || q == nil || q.handle == nil {
+		return 0
+	}
+	return int(api.multiQueryGetSubQueryCount(q.handle))
+}
+
 func (q *MultiQuery) SetTopK(topk int) error {
-	q.topK = topk
-	return unsupportedError("MultiQuery.SetTopK")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.multiQuerySetTopK(q.handle, int32(topk)))
 }
-func (q *MultiQuery) GetTopK() int { return q.topK }
+
+func (q *MultiQuery) GetTopK() int {
+	api, err := puregoAPI()
+	if err != nil || q == nil || q.handle == nil {
+		return 0
+	}
+	return int(api.multiQueryGetTopK(q.handle))
+}
+
 func (q *MultiQuery) SetFilter(filter string) error {
-	q.filter = filter
-	return unsupportedError("MultiQuery.SetFilter")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.multiQuerySetFilter(q.handle, filter))
 }
-func (q *MultiQuery) GetFilter() string { return q.filter }
+
+func (q *MultiQuery) GetFilter() string {
+	api, err := puregoAPI()
+	if err != nil || q == nil || q.handle == nil {
+		return ""
+	}
+	return api.multiQueryGetFilter(q.handle)
+}
+
 func (q *MultiQuery) SetIncludeVector(include bool) error {
-	q.includeVector = include
-	return unsupportedError("MultiQuery.SetIncludeVector")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.multiQuerySetIncludeVector(q.handle, include))
 }
-func (q *MultiQuery) GetIncludeVector() bool { return q.includeVector }
+
+func (q *MultiQuery) GetIncludeVector() bool {
+	api, err := puregoAPI()
+	return err == nil && q != nil && q.handle != nil && api.multiQueryGetIncludeVector(q.handle)
+}
+
 func (q *MultiQuery) SetOutputFields(fields []string) error {
-	return unsupportedError("MultiQuery.SetOutputFields")
+	if len(fields) == 0 {
+		return nil
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	ptrs, keep := cStringArray(fields)
+	err = toError(api.multiQuerySetOutputFields(q.handle, unsafe.Pointer(&ptrs[0]), uintptr(len(ptrs))))
+	runtime.KeepAlive(ptrs)
+	runtime.KeepAlive(keep)
+	return err
 }
+
 func (q *MultiQuery) SetRerankRRF(rankConstant int) error {
-	return unsupportedError("MultiQuery.SetRerankRRF")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.multiQuerySetRerankRRF(q.handle, int32(rankConstant)))
 }
+
 func (q *MultiQuery) SetRerankWeighted(weights []float64) error {
 	if len(weights) == 0 {
 		return invalidArgumentError("weights cannot be empty")
 	}
-	return unsupportedError("MultiQuery.SetRerankWeighted")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.multiQuerySetRerankWeighted(q.handle, unsafe.Pointer(&weights[0]), uintptr(len(weights))))
+	runtime.KeepAlive(weights)
+	return err
 }
 
-// SubQuery is not part of the initial purego POC binding.
 type SubQuery struct {
-	handle        unsafe.Pointer
-	fieldName     string
-	numCandidates int
+	handle unsafe.Pointer
 }
 
-func NewSubQuery() *SubQuery { return &SubQuery{} }
-func (q *SubQuery) Destroy() { q.handle = nil }
+func NewSubQuery() *SubQuery {
+	api, err := puregoAPI()
+	if err != nil {
+		return nil
+	}
+	handle := api.subQueryCreate()
+	if handle == nil {
+		return nil
+	}
+	return &SubQuery{handle: handle}
+}
+
+func (q *SubQuery) Destroy() {
+	if q != nil && q.handle != nil {
+		if api, err := puregoAPI(); err == nil {
+			api.subQueryDestroy(q.handle)
+		}
+		q.handle = nil
+	}
+}
+
 func (q *SubQuery) SetNumCandidates(n int) error {
-	q.numCandidates = n
-	return unsupportedError("SubQuery.SetNumCandidates")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.subQuerySetNumCandidates(q.handle, int32(n)))
 }
-func (q *SubQuery) GetNumCandidates() int { return q.numCandidates }
+
+func (q *SubQuery) GetNumCandidates() int {
+	api, err := puregoAPI()
+	if err != nil || q == nil || q.handle == nil {
+		return 0
+	}
+	return int(api.subQueryGetNumCandidates(q.handle))
+}
+
 func (q *SubQuery) SetFieldName(name string) error {
-	q.fieldName = name
-	return unsupportedError("SubQuery.SetFieldName")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.subQuerySetFieldName(q.handle, name))
 }
-func (q *SubQuery) GetFieldName() string { return q.fieldName }
+
+func (q *SubQuery) GetFieldName() string {
+	api, err := puregoAPI()
+	if err != nil || q == nil || q.handle == nil {
+		return ""
+	}
+	return api.subQueryGetFieldName(q.handle)
+}
+
 func (q *SubQuery) SetQueryVector(data []float32) error {
 	if len(data) == 0 {
 		return invalidArgumentError("query vector cannot be empty")
 	}
-	return unsupportedError("SubQuery.SetQueryVector")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.subQuerySetQueryVector(q.handle, unsafe.Pointer(&data[0]), uintptr(len(data)*4)))
+	runtime.KeepAlive(data)
+	return err
 }
+
 func (q *SubQuery) SetSparseVector(indices []uint32, values []float32) error {
 	if len(indices) != len(values) {
 		return invalidArgumentError("indices and values must have the same length")
@@ -1954,62 +2182,175 @@ func (q *SubQuery) SetSparseVector(indices []uint32, values []float32) error {
 	}
 	return unsupportedError("SubQuery.SetSparseVector")
 }
+
 func (q *SubQuery) SetHNSWParams(params *HNSWQueryParams) error {
-	return unsupportedError("SubQuery.SetHNSWParams")
-}
-func (q *SubQuery) SetIVFParams(params *IVFQueryParams) error {
-	return unsupportedError("SubQuery.SetIVFParams")
-}
-func (q *SubQuery) SetFlatParams(params *FlatQueryParams) error {
-	return unsupportedError("SubQuery.SetFlatParams")
-}
-func (q *SubQuery) SetFTSParams(params *FTSQueryParams) error {
-	return unsupportedError("SubQuery.SetFTSParams")
-}
-func (q *SubQuery) SetFTS(fts *FTS) error {
-	return unsupportedError("SubQuery.SetFTS")
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("HNSW query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.subQuerySetHNSWParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
 }
 
-// FTS is not part of the initial purego POC binding.
+func (q *SubQuery) SetIVFParams(params *IVFQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("IVF query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.subQuerySetIVFParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
+}
+
+func (q *SubQuery) SetFlatParams(params *FlatQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("Flat query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.subQuerySetFlatParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
+}
+
+func (q *SubQuery) SetFTSParams(params *FTSQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("FTS query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.subQuerySetFTSParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
+}
+
+func (q *SubQuery) SetFTS(fts *FTS) error {
+	if fts == nil || fts.handle == nil {
+		return invalidArgumentError("FTS payload is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.subQuerySetFTS(q.handle, fts.handle))
+}
+
 type FTS struct {
-	handle      unsafe.Pointer
-	owned       bool
-	queryString string
-	matchString string
+	handle unsafe.Pointer
+	owned  bool
 }
 
 func NewFTS() *FTS {
-	return &FTS{owned: true}
+	api, err := puregoAPI()
+	if err != nil {
+		return nil
+	}
+	handle := api.ftsCreate()
+	if handle == nil {
+		return nil
+	}
+	return &FTS{handle: handle, owned: true}
 }
 
 func (f *FTS) Destroy() {
-	if f != nil && f.owned {
+	if f != nil && f.handle != nil && f.owned {
+		if api, err := puregoAPI(); err == nil {
+			api.ftsDestroy(f.handle)
+		}
 		f.handle = nil
 	}
 }
 
 func (f *FTS) SetQueryString(query string) error {
-	f.queryString = query
-	return nil
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if f == nil || f.handle == nil {
+		return invalidArgumentError("FTS payload is nil")
+	}
+	return toError(api.ftsSetQueryString(f.handle, query))
 }
 
 func (f *FTS) GetQueryString() string {
-	if f == nil {
+	api, err := puregoAPI()
+	if err != nil || f == nil || f.handle == nil {
 		return ""
 	}
-	return f.queryString
+	return api.ftsGetQueryString(f.handle)
 }
 
 func (f *FTS) SetMatchString(match string) error {
-	f.matchString = match
-	return nil
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if f == nil || f.handle == nil {
+		return invalidArgumentError("FTS payload is nil")
+	}
+	return toError(api.ftsSetMatchString(f.handle, match))
 }
 
 func (f *FTS) GetMatchString() string {
-	if f == nil {
+	api, err := puregoAPI()
+	if err != nil || f == nil || f.handle == nil {
 		return ""
 	}
-	return f.matchString
+	return api.ftsGetMatchString(f.handle)
+}
+
+type zvecString struct {
+	data     unsafe.Pointer
+	length   uintptr
+	capacity uintptr
+}
+
+type zvecStringArray struct {
+	strings unsafe.Pointer
+	count   uintptr
+}
+
+func optionalCString(value string) ([]byte, unsafe.Pointer) {
+	if value == "" {
+		return nil, nil
+	}
+	buf := nullTerminatedBytes(value)
+	return buf, unsafe.Pointer(&buf[0])
+}
+
+func readZvecStringArray(ptr unsafe.Pointer) []string {
+	array := (*zvecStringArray)(ptr)
+	if array == nil || array.strings == nil || array.count == 0 {
+		return nil
+	}
+	out := make([]string, int(array.count))
+	elemSize := unsafe.Sizeof(zvecString{})
+	for i := uintptr(0); i < array.count; i++ {
+		item := (*zvecString)(unsafe.Pointer(uintptr(array.strings) + i*elemSize))
+		if item.data != nil && item.length > 0 {
+			out[i] = string(unsafe.Slice((*byte)(item.data), int(item.length)))
+		}
+	}
+	return out
 }
 
 func nullTerminatedBytes(value string) []byte {

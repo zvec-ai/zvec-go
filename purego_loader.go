@@ -49,6 +49,11 @@ type zvecPuregoAPI struct {
 	indexParamsGetHNSWEfConstruction func(unsafe.Pointer) int32
 	indexParamsSetIVFParams          func(unsafe.Pointer, int32, int32, bool) int32
 	indexParamsSetInvertParams       func(unsafe.Pointer, bool, bool) int32
+	indexParamsSetFTSParams          func(unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer) int32
+	indexParamsGetFTSParams          func(unsafe.Pointer, *unsafe.Pointer, *unsafe.Pointer, *unsafe.Pointer) int32
+	stringArrayCreate                func(uintptr) unsafe.Pointer
+	stringArrayAdd                   func(unsafe.Pointer, uintptr, string)
+	stringArrayDestroy               func(unsafe.Pointer)
 
 	fieldSchemaCreate         func(string, uint32, bool, uint32) unsafe.Pointer
 	fieldSchemaDestroy        func(unsafe.Pointer)
@@ -98,6 +103,7 @@ type zvecPuregoAPI struct {
 	collectionInsert        func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
 	collectionUpsert        func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
 	collectionQuery         func(unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer, *uintptr) int32
+	collectionMultiQuery    func(unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer, *uintptr) int32
 
 	docCreate               func() unsafe.Pointer
 	docDestroy              func(unsafe.Pointer)
@@ -133,6 +139,10 @@ type zvecPuregoAPI struct {
 	ivfQueryParamsSetNprobe func(unsafe.Pointer, int32) int32
 	flatQueryParamsCreate   func(bool, float32) unsafe.Pointer
 	flatQueryParamsDestroy  func(unsafe.Pointer)
+	ftsQueryParamsCreate    func(unsafe.Pointer) unsafe.Pointer
+	ftsQueryParamsDestroy   func(unsafe.Pointer)
+	ftsQueryParamsSetOp     func(unsafe.Pointer, string) int32
+	ftsQueryParamsGetOp     func(unsafe.Pointer) string
 
 	vectorQueryCreate           func() unsafe.Pointer
 	vectorQueryDestroy          func(unsafe.Pointer)
@@ -151,6 +161,42 @@ type zvecPuregoAPI struct {
 	vectorQuerySetHNSWParams    func(unsafe.Pointer, unsafe.Pointer) int32
 	vectorQuerySetIVFParams     func(unsafe.Pointer, unsafe.Pointer) int32
 	vectorQuerySetFlatParams    func(unsafe.Pointer, unsafe.Pointer) int32
+	vectorQuerySetFTSParams     func(unsafe.Pointer, unsafe.Pointer) int32
+	ftsCreate                   func() unsafe.Pointer
+	ftsDestroy                  func(unsafe.Pointer)
+	ftsSetQueryString           func(unsafe.Pointer, string) int32
+	ftsSetMatchString           func(unsafe.Pointer, string) int32
+	ftsGetQueryString           func(unsafe.Pointer) string
+	ftsGetMatchString           func(unsafe.Pointer) string
+	vectorQuerySetFTS           func(unsafe.Pointer, unsafe.Pointer) int32
+	vectorQueryGetFTS           func(unsafe.Pointer) unsafe.Pointer
+
+	multiQueryCreate            func() unsafe.Pointer
+	multiQueryDestroy           func(unsafe.Pointer)
+	multiQueryAddSubQuery       func(unsafe.Pointer, unsafe.Pointer) int32
+	multiQueryGetSubQueryCount  func(unsafe.Pointer) uintptr
+	multiQuerySetTopK           func(unsafe.Pointer, int32) int32
+	multiQueryGetTopK           func(unsafe.Pointer) int32
+	multiQuerySetFilter         func(unsafe.Pointer, string) int32
+	multiQueryGetFilter         func(unsafe.Pointer) string
+	multiQuerySetIncludeVector  func(unsafe.Pointer, bool) int32
+	multiQueryGetIncludeVector  func(unsafe.Pointer) bool
+	multiQuerySetOutputFields   func(unsafe.Pointer, unsafe.Pointer, uintptr) int32
+	multiQuerySetRerankRRF      func(unsafe.Pointer, int32) int32
+	multiQuerySetRerankWeighted func(unsafe.Pointer, unsafe.Pointer, uintptr) int32
+
+	subQueryCreate           func() unsafe.Pointer
+	subQueryDestroy          func(unsafe.Pointer)
+	subQuerySetNumCandidates func(unsafe.Pointer, int32) int32
+	subQueryGetNumCandidates func(unsafe.Pointer) int32
+	subQuerySetFieldName     func(unsafe.Pointer, string) int32
+	subQueryGetFieldName     func(unsafe.Pointer) string
+	subQuerySetQueryVector   func(unsafe.Pointer, unsafe.Pointer, uintptr) int32
+	subQuerySetHNSWParams    func(unsafe.Pointer, unsafe.Pointer) int32
+	subQuerySetIVFParams     func(unsafe.Pointer, unsafe.Pointer) int32
+	subQuerySetFlatParams    func(unsafe.Pointer, unsafe.Pointer) int32
+	subQuerySetFTSParams     func(unsafe.Pointer, unsafe.Pointer) int32
+	subQuerySetFTS           func(unsafe.Pointer, unsafe.Pointer) int32
 }
 
 func puregoAPI() (*zvecPuregoAPI, error) {
@@ -222,6 +268,11 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.indexParamsGetHNSWEfConstruction, "zvec_index_params_get_hnsw_ef_construction")
 	register(&puregoFns.indexParamsSetIVFParams, "zvec_index_params_set_ivf_params")
 	register(&puregoFns.indexParamsSetInvertParams, "zvec_index_params_set_invert_params")
+	register(&puregoFns.indexParamsSetFTSParams, "zvec_index_params_set_fts_params")
+	register(&puregoFns.indexParamsGetFTSParams, "zvec_index_params_get_fts_params")
+	register(&puregoFns.stringArrayCreate, "zvec_string_array_create")
+	register(&puregoFns.stringArrayAdd, "zvec_string_array_add")
+	register(&puregoFns.stringArrayDestroy, "zvec_string_array_destroy")
 
 	register(&puregoFns.fieldSchemaCreate, "zvec_field_schema_create")
 	register(&puregoFns.fieldSchemaDestroy, "zvec_field_schema_destroy")
@@ -271,6 +322,7 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.collectionInsert, "zvec_collection_insert")
 	register(&puregoFns.collectionUpsert, "zvec_collection_upsert")
 	register(&puregoFns.collectionQuery, "zvec_collection_query")
+	register(&puregoFns.collectionMultiQuery, "zvec_collection_multi_query")
 
 	register(&puregoFns.docCreate, "zvec_doc_create")
 	register(&puregoFns.docDestroy, "zvec_doc_destroy")
@@ -306,6 +358,10 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.ivfQueryParamsSetNprobe, "zvec_query_params_ivf_set_nprobe")
 	register(&puregoFns.flatQueryParamsCreate, "zvec_query_params_flat_create")
 	register(&puregoFns.flatQueryParamsDestroy, "zvec_query_params_flat_destroy")
+	register(&puregoFns.ftsQueryParamsCreate, "zvec_query_params_fts_create")
+	register(&puregoFns.ftsQueryParamsDestroy, "zvec_query_params_fts_destroy")
+	register(&puregoFns.ftsQueryParamsSetOp, "zvec_query_params_fts_set_default_operator")
+	register(&puregoFns.ftsQueryParamsGetOp, "zvec_query_params_fts_get_default_operator")
 
 	register(&puregoFns.vectorQueryCreate, "zvec_vector_query_create")
 	register(&puregoFns.vectorQueryDestroy, "zvec_vector_query_destroy")
@@ -324,6 +380,42 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.vectorQuerySetHNSWParams, "zvec_vector_query_set_hnsw_params")
 	register(&puregoFns.vectorQuerySetIVFParams, "zvec_vector_query_set_ivf_params")
 	register(&puregoFns.vectorQuerySetFlatParams, "zvec_vector_query_set_flat_params")
+	register(&puregoFns.vectorQuerySetFTSParams, "zvec_vector_query_set_fts_params")
+	register(&puregoFns.ftsCreate, "zvec_fts_create")
+	register(&puregoFns.ftsDestroy, "zvec_fts_destroy")
+	register(&puregoFns.ftsSetQueryString, "zvec_fts_set_query_string")
+	register(&puregoFns.ftsSetMatchString, "zvec_fts_set_match_string")
+	register(&puregoFns.ftsGetQueryString, "zvec_fts_get_query_string")
+	register(&puregoFns.ftsGetMatchString, "zvec_fts_get_match_string")
+	register(&puregoFns.vectorQuerySetFTS, "zvec_vector_query_set_fts")
+	register(&puregoFns.vectorQueryGetFTS, "zvec_vector_query_get_fts")
+
+	register(&puregoFns.multiQueryCreate, "zvec_multi_query_create")
+	register(&puregoFns.multiQueryDestroy, "zvec_multi_query_destroy")
+	register(&puregoFns.multiQueryAddSubQuery, "zvec_multi_query_add_sub_query")
+	register(&puregoFns.multiQueryGetSubQueryCount, "zvec_multi_query_get_sub_query_count")
+	register(&puregoFns.multiQuerySetTopK, "zvec_multi_query_set_topk")
+	register(&puregoFns.multiQueryGetTopK, "zvec_multi_query_get_topk")
+	register(&puregoFns.multiQuerySetFilter, "zvec_multi_query_set_filter")
+	register(&puregoFns.multiQueryGetFilter, "zvec_multi_query_get_filter")
+	register(&puregoFns.multiQuerySetIncludeVector, "zvec_multi_query_set_include_vector")
+	register(&puregoFns.multiQueryGetIncludeVector, "zvec_multi_query_get_include_vector")
+	register(&puregoFns.multiQuerySetOutputFields, "zvec_multi_query_set_output_fields")
+	register(&puregoFns.multiQuerySetRerankRRF, "zvec_multi_query_set_rerank_rrf")
+	register(&puregoFns.multiQuerySetRerankWeighted, "zvec_multi_query_set_rerank_weighted")
+
+	register(&puregoFns.subQueryCreate, "zvec_sub_query_create")
+	register(&puregoFns.subQueryDestroy, "zvec_sub_query_destroy")
+	register(&puregoFns.subQuerySetNumCandidates, "zvec_sub_query_set_num_candidates")
+	register(&puregoFns.subQueryGetNumCandidates, "zvec_sub_query_get_num_candidates")
+	register(&puregoFns.subQuerySetFieldName, "zvec_sub_query_set_field_name")
+	register(&puregoFns.subQueryGetFieldName, "zvec_sub_query_get_field_name")
+	register(&puregoFns.subQuerySetQueryVector, "zvec_sub_query_set_query_vector")
+	register(&puregoFns.subQuerySetHNSWParams, "zvec_sub_query_set_hnsw_params")
+	register(&puregoFns.subQuerySetIVFParams, "zvec_sub_query_set_ivf_params")
+	register(&puregoFns.subQuerySetFlatParams, "zvec_sub_query_set_flat_params")
+	register(&puregoFns.subQuerySetFTSParams, "zvec_sub_query_set_fts_params")
+	register(&puregoFns.subQuerySetFTS, "zvec_sub_query_set_fts")
 
 	return nil
 }
