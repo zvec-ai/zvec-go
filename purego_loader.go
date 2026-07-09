@@ -37,6 +37,25 @@ type zvecPuregoAPI struct {
 	getLastError  func(*unsafe.Pointer) int32
 	free          func(unsafe.Pointer)
 
+	configLogCreateConsole           func(int32) unsafe.Pointer
+	configLogCreateFile              func(int32, unsafe.Pointer, unsafe.Pointer, uint32, uint32) unsafe.Pointer
+	configLogDestroy                 func(unsafe.Pointer)
+	configDataCreate                 func() unsafe.Pointer
+	configDataDestroy                func(unsafe.Pointer)
+	configDataSetMemoryLimit         func(unsafe.Pointer, uint64) int32
+	configDataGetMemoryLimit         func(unsafe.Pointer) uint64
+	configDataSetLogConfig           func(unsafe.Pointer, unsafe.Pointer) int32
+	configDataSetQueryThreadCount    func(unsafe.Pointer, uint32) int32
+	configDataGetQueryThreadCount    func(unsafe.Pointer) uint32
+	configDataSetFTSBruteForceRatio  func(unsafe.Pointer, float32) int32
+	configDataGetFTSBruteForceRatio  func(unsafe.Pointer) float32
+	configDataSetOptimizeThreadCount func(unsafe.Pointer, uint32) int32
+	configDataGetOptimizeThreadCount func(unsafe.Pointer) uint32
+	configDataSetJiebaDictDir        func(unsafe.Pointer, unsafe.Pointer) int32
+	configDataGetJiebaDictDir        func(unsafe.Pointer) unsafe.Pointer
+	setDefaultJiebaDictDir           func(unsafe.Pointer)
+	getDefaultJiebaDictDir           func() unsafe.Pointer
+
 	indexParamsCreate                func(uint32) unsafe.Pointer
 	indexParamsDestroy               func(unsafe.Pointer)
 	indexParamsGetType               func(unsafe.Pointer) uint32
@@ -95,15 +114,33 @@ type zvecPuregoAPI struct {
 	collectionOptionsSetReadOnly      func(unsafe.Pointer, bool) int32
 	collectionOptionsGetReadOnly      func(unsafe.Pointer) bool
 
-	collectionCreateAndOpen func(string, unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer) int32
-	collectionOpen          func(string, unsafe.Pointer, *unsafe.Pointer) int32
-	collectionClose         func(unsafe.Pointer) int32
-	collectionDestroy       func(unsafe.Pointer) int32
-	collectionFlush         func(unsafe.Pointer) int32
-	collectionInsert        func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
-	collectionUpsert        func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
-	collectionQuery         func(unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer, *uintptr) int32
-	collectionMultiQuery    func(unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer, *uintptr) int32
+	collectionCreateAndOpen          func(string, unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer) int32
+	collectionOpen                   func(string, unsafe.Pointer, *unsafe.Pointer) int32
+	collectionClose                  func(unsafe.Pointer) int32
+	collectionDestroy                func(unsafe.Pointer) int32
+	collectionFlush                  func(unsafe.Pointer) int32
+	collectionGetSchema              func(unsafe.Pointer, *unsafe.Pointer) int32
+	collectionGetOptions             func(unsafe.Pointer, *unsafe.Pointer) int32
+	collectionGetStats               func(unsafe.Pointer, *unsafe.Pointer) int32
+	collectionStatsDestroy           func(unsafe.Pointer)
+	collectionStatsDocCount          func(unsafe.Pointer) uint64
+	collectionStatsIndexCount        func(unsafe.Pointer) uintptr
+	collectionStatsIndexName         func(unsafe.Pointer, uintptr) unsafe.Pointer
+	collectionStatsIndexCompleteness func(unsafe.Pointer, uintptr) float32
+	collectionOptimize               func(unsafe.Pointer) int32
+	collectionCreateIndex            func(unsafe.Pointer, string, unsafe.Pointer) int32
+	collectionDropIndex              func(unsafe.Pointer, string) int32
+	collectionAddColumn              func(unsafe.Pointer, unsafe.Pointer, unsafe.Pointer) int32
+	collectionDropColumn             func(unsafe.Pointer, string) int32
+	collectionAlterColumn            func(unsafe.Pointer, string, unsafe.Pointer, unsafe.Pointer) int32
+	collectionInsert                 func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
+	collectionUpdate                 func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
+	collectionUpsert                 func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
+	collectionDelete                 func(unsafe.Pointer, unsafe.Pointer, uintptr, *uintptr, *uintptr) int32
+	collectionDeleteByFilter         func(unsafe.Pointer, string) int32
+	collectionQuery                  func(unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer, *uintptr) int32
+	collectionMultiQuery             func(unsafe.Pointer, unsafe.Pointer, *unsafe.Pointer, *uintptr) int32
+	collectionFetch                  func(unsafe.Pointer, unsafe.Pointer, uintptr, unsafe.Pointer, uintptr, bool, *unsafe.Pointer, *uintptr) int32
 
 	docCreate               func() unsafe.Pointer
 	docDestroy              func(unsafe.Pointer)
@@ -171,6 +208,20 @@ type zvecPuregoAPI struct {
 	vectorQuerySetFTS           func(unsafe.Pointer, unsafe.Pointer) int32
 	vectorQueryGetFTS           func(unsafe.Pointer) unsafe.Pointer
 
+	groupByQueryCreate              func() unsafe.Pointer
+	groupByQueryDestroy             func(unsafe.Pointer)
+	groupByQuerySetFieldName        func(unsafe.Pointer, string) int32
+	groupByQuerySetGroupByFieldName func(unsafe.Pointer, string) int32
+	groupByQuerySetGroupCount       func(unsafe.Pointer, uint32) int32
+	groupByQuerySetGroupTopK        func(unsafe.Pointer, uint32) int32
+	groupByQuerySetQueryVector      func(unsafe.Pointer, unsafe.Pointer, uintptr) int32
+	groupByQuerySetFilter           func(unsafe.Pointer, string) int32
+	groupByQuerySetIncludeVector    func(unsafe.Pointer, bool) int32
+	groupByQuerySetOutputFields     func(unsafe.Pointer, unsafe.Pointer, uintptr) int32
+	groupByQuerySetHNSWParams       func(unsafe.Pointer, unsafe.Pointer) int32
+	groupByQuerySetIVFParams        func(unsafe.Pointer, unsafe.Pointer) int32
+	groupByQuerySetFlatParams       func(unsafe.Pointer, unsafe.Pointer) int32
+
 	multiQueryCreate            func() unsafe.Pointer
 	multiQueryDestroy           func(unsafe.Pointer)
 	multiQueryAddSubQuery       func(unsafe.Pointer, unsafe.Pointer) int32
@@ -192,6 +243,7 @@ type zvecPuregoAPI struct {
 	subQuerySetFieldName     func(unsafe.Pointer, string) int32
 	subQueryGetFieldName     func(unsafe.Pointer) string
 	subQuerySetQueryVector   func(unsafe.Pointer, unsafe.Pointer, uintptr) int32
+	subQuerySetSparseVector  func(unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, uintptr) int32
 	subQuerySetHNSWParams    func(unsafe.Pointer, unsafe.Pointer) int32
 	subQuerySetIVFParams     func(unsafe.Pointer, unsafe.Pointer) int32
 	subQuerySetFlatParams    func(unsafe.Pointer, unsafe.Pointer) int32
@@ -256,6 +308,25 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.getLastError, "zvec_get_last_error")
 	register(&puregoFns.free, "zvec_free")
 
+	register(&puregoFns.configLogCreateConsole, "zvec_config_log_create_console")
+	register(&puregoFns.configLogCreateFile, "zvec_config_log_create_file")
+	register(&puregoFns.configLogDestroy, "zvec_config_log_destroy")
+	register(&puregoFns.configDataCreate, "zvec_config_data_create")
+	register(&puregoFns.configDataDestroy, "zvec_config_data_destroy")
+	register(&puregoFns.configDataSetMemoryLimit, "zvec_config_data_set_memory_limit")
+	register(&puregoFns.configDataGetMemoryLimit, "zvec_config_data_get_memory_limit")
+	register(&puregoFns.configDataSetLogConfig, "zvec_config_data_set_log_config")
+	register(&puregoFns.configDataSetQueryThreadCount, "zvec_config_data_set_query_thread_count")
+	register(&puregoFns.configDataGetQueryThreadCount, "zvec_config_data_get_query_thread_count")
+	register(&puregoFns.configDataSetFTSBruteForceRatio, "zvec_config_data_set_fts_brute_force_by_keys_ratio")
+	register(&puregoFns.configDataGetFTSBruteForceRatio, "zvec_config_data_get_fts_brute_force_by_keys_ratio")
+	register(&puregoFns.configDataSetOptimizeThreadCount, "zvec_config_data_set_optimize_thread_count")
+	register(&puregoFns.configDataGetOptimizeThreadCount, "zvec_config_data_get_optimize_thread_count")
+	register(&puregoFns.configDataSetJiebaDictDir, "zvec_config_data_set_jieba_dict_dir")
+	register(&puregoFns.configDataGetJiebaDictDir, "zvec_config_data_get_jieba_dict_dir")
+	register(&puregoFns.setDefaultJiebaDictDir, "zvec_set_default_jieba_dict_dir")
+	register(&puregoFns.getDefaultJiebaDictDir, "zvec_get_default_jieba_dict_dir")
+
 	register(&puregoFns.indexParamsCreate, "zvec_index_params_create")
 	register(&puregoFns.indexParamsDestroy, "zvec_index_params_destroy")
 	register(&puregoFns.indexParamsGetType, "zvec_index_params_get_type")
@@ -319,10 +390,28 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.collectionClose, "zvec_collection_close")
 	register(&puregoFns.collectionDestroy, "zvec_collection_destroy")
 	register(&puregoFns.collectionFlush, "zvec_collection_flush")
+	register(&puregoFns.collectionGetSchema, "zvec_collection_get_schema")
+	register(&puregoFns.collectionGetOptions, "zvec_collection_get_options")
+	register(&puregoFns.collectionGetStats, "zvec_collection_get_stats")
+	register(&puregoFns.collectionStatsDestroy, "zvec_collection_stats_destroy")
+	register(&puregoFns.collectionStatsDocCount, "zvec_collection_stats_get_doc_count")
+	register(&puregoFns.collectionStatsIndexCount, "zvec_collection_stats_get_index_count")
+	register(&puregoFns.collectionStatsIndexName, "zvec_collection_stats_get_index_name")
+	register(&puregoFns.collectionStatsIndexCompleteness, "zvec_collection_stats_get_index_completeness")
+	register(&puregoFns.collectionOptimize, "zvec_collection_optimize")
+	register(&puregoFns.collectionCreateIndex, "zvec_collection_create_index")
+	register(&puregoFns.collectionDropIndex, "zvec_collection_drop_index")
+	register(&puregoFns.collectionAddColumn, "zvec_collection_add_column")
+	register(&puregoFns.collectionDropColumn, "zvec_collection_drop_column")
+	register(&puregoFns.collectionAlterColumn, "zvec_collection_alter_column")
 	register(&puregoFns.collectionInsert, "zvec_collection_insert")
+	register(&puregoFns.collectionUpdate, "zvec_collection_update")
 	register(&puregoFns.collectionUpsert, "zvec_collection_upsert")
+	register(&puregoFns.collectionDelete, "zvec_collection_delete")
+	register(&puregoFns.collectionDeleteByFilter, "zvec_collection_delete_by_filter")
 	register(&puregoFns.collectionQuery, "zvec_collection_query")
 	register(&puregoFns.collectionMultiQuery, "zvec_collection_multi_query")
+	register(&puregoFns.collectionFetch, "zvec_collection_fetch")
 
 	register(&puregoFns.docCreate, "zvec_doc_create")
 	register(&puregoFns.docDestroy, "zvec_doc_destroy")
@@ -390,6 +479,20 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.vectorQuerySetFTS, "zvec_vector_query_set_fts")
 	register(&puregoFns.vectorQueryGetFTS, "zvec_vector_query_get_fts")
 
+	register(&puregoFns.groupByQueryCreate, "zvec_group_by_vector_query_create")
+	register(&puregoFns.groupByQueryDestroy, "zvec_group_by_vector_query_destroy")
+	register(&puregoFns.groupByQuerySetFieldName, "zvec_group_by_vector_query_set_field_name")
+	register(&puregoFns.groupByQuerySetGroupByFieldName, "zvec_group_by_vector_query_set_group_by_field_name")
+	register(&puregoFns.groupByQuerySetGroupCount, "zvec_group_by_vector_query_set_group_count")
+	register(&puregoFns.groupByQuerySetGroupTopK, "zvec_group_by_vector_query_set_group_topk")
+	register(&puregoFns.groupByQuerySetQueryVector, "zvec_group_by_vector_query_set_query_vector")
+	register(&puregoFns.groupByQuerySetFilter, "zvec_group_by_vector_query_set_filter")
+	register(&puregoFns.groupByQuerySetIncludeVector, "zvec_group_by_vector_query_set_include_vector")
+	register(&puregoFns.groupByQuerySetOutputFields, "zvec_group_by_vector_query_set_output_fields")
+	register(&puregoFns.groupByQuerySetHNSWParams, "zvec_group_by_vector_query_set_hnsw_params")
+	register(&puregoFns.groupByQuerySetIVFParams, "zvec_group_by_vector_query_set_ivf_params")
+	register(&puregoFns.groupByQuerySetFlatParams, "zvec_group_by_vector_query_set_flat_params")
+
 	register(&puregoFns.multiQueryCreate, "zvec_multi_query_create")
 	register(&puregoFns.multiQueryDestroy, "zvec_multi_query_destroy")
 	register(&puregoFns.multiQueryAddSubQuery, "zvec_multi_query_add_sub_query")
@@ -411,6 +514,7 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.subQuerySetFieldName, "zvec_sub_query_set_field_name")
 	register(&puregoFns.subQueryGetFieldName, "zvec_sub_query_get_field_name")
 	register(&puregoFns.subQuerySetQueryVector, "zvec_sub_query_set_query_vector")
+	register(&puregoFns.subQuerySetSparseVector, "zvec_sub_query_set_sparse_vector")
 	register(&puregoFns.subQuerySetHNSWParams, "zvec_sub_query_set_hnsw_params")
 	register(&puregoFns.subQuerySetIVFParams, "zvec_sub_query_set_ivf_params")
 	register(&puregoFns.subQuerySetFlatParams, "zvec_sub_query_set_flat_params")

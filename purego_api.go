@@ -110,10 +110,6 @@ func toError(code int32) error {
 	return &Error{Code: ErrorCode(code), Message: message}
 }
 
-func unsupportedError(feature string) error {
-	return &Error{Code: NotSupported, Message: feature + " is not bound in the purego backend POC"}
-}
-
 func invalidArgumentError(message string) error {
 	return &Error{Code: InvalidArgument, Message: message}
 }
@@ -402,67 +398,188 @@ type ConfigData struct {
 }
 
 func NewConfigData() *ConfigData {
-	return nil
+	api, err := puregoAPI()
+	if err != nil {
+		return nil
+	}
+	handle := api.configDataCreate()
+	if handle == nil {
+		return nil
+	}
+	return &ConfigData{handle: handle}
 }
 
 func (c *ConfigData) Destroy() {
-	if c != nil {
+	if c != nil && c.handle != nil {
+		if api, err := puregoAPI(); err == nil {
+			api.configDataDestroy(c.handle)
+		}
 		c.handle = nil
 	}
 }
 
 func (c *ConfigData) SetMemoryLimit(bytes uint64) error {
-	return unsupportedError("ConfigData.SetMemoryLimit")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if c == nil || c.handle == nil {
+		return invalidArgumentError("config data is nil")
+	}
+	return toError(api.configDataSetMemoryLimit(c.handle, bytes))
 }
 
 func (c *ConfigData) GetMemoryLimit() uint64 {
-	return 0
+	api, err := puregoAPI()
+	if err != nil || c == nil || c.handle == nil {
+		return 0
+	}
+	return api.configDataGetMemoryLimit(c.handle)
 }
 
 func (c *ConfigData) SetQueryThreadCount(count uint32) error {
-	return unsupportedError("ConfigData.SetQueryThreadCount")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if c == nil || c.handle == nil {
+		return invalidArgumentError("config data is nil")
+	}
+	return toError(api.configDataSetQueryThreadCount(c.handle, count))
 }
 
 func (c *ConfigData) GetQueryThreadCount() uint32 {
-	return 0
+	api, err := puregoAPI()
+	if err != nil || c == nil || c.handle == nil {
+		return 0
+	}
+	return api.configDataGetQueryThreadCount(c.handle)
 }
 
 func (c *ConfigData) SetOptimizeThreadCount(count uint32) error {
-	return unsupportedError("ConfigData.SetOptimizeThreadCount")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if c == nil || c.handle == nil {
+		return invalidArgumentError("config data is nil")
+	}
+	return toError(api.configDataSetOptimizeThreadCount(c.handle, count))
 }
 
 func (c *ConfigData) GetOptimizeThreadCount() uint32 {
-	return 0
+	api, err := puregoAPI()
+	if err != nil || c == nil || c.handle == nil {
+		return 0
+	}
+	return api.configDataGetOptimizeThreadCount(c.handle)
 }
 
 func (c *ConfigData) SetFTSBruteForceByKeysRatio(ratio float32) error {
-	return unsupportedError("ConfigData.SetFTSBruteForceByKeysRatio")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if c == nil || c.handle == nil {
+		return invalidArgumentError("config data is nil")
+	}
+	return toError(api.configDataSetFTSBruteForceRatio(c.handle, ratio))
 }
 
 func (c *ConfigData) GetFTSBruteForceByKeysRatio() float32 {
-	return 0
+	api, err := puregoAPI()
+	if err != nil || c == nil || c.handle == nil {
+		return 0
+	}
+	return api.configDataGetFTSBruteForceRatio(c.handle)
 }
 
 func (c *ConfigData) SetJiebaDictDir(dir string) error {
-	return unsupportedError("ConfigData.SetJiebaDictDir")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if c == nil || c.handle == nil {
+		return invalidArgumentError("config data is nil")
+	}
+	dirBuf, cDir := optionalCString(dir)
+	err = toError(api.configDataSetJiebaDictDir(c.handle, cDir))
+	runtime.KeepAlive(dirBuf)
+	return err
 }
 
 func (c *ConfigData) GetJiebaDictDir() string {
-	return ""
+	api, err := puregoAPI()
+	if err != nil || c == nil || c.handle == nil {
+		return ""
+	}
+	return cStringFromPointer(api.configDataGetJiebaDictDir(c.handle))
 }
 
 func (c *ConfigData) SetConsoleLog(level LogLevel) error {
-	return unsupportedError("ConfigData.SetConsoleLog")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if c == nil || c.handle == nil {
+		return invalidArgumentError("config data is nil")
+	}
+	logConfig := api.configLogCreateConsole(int32(level))
+	if logConfig == nil {
+		return &Error{Code: InternalError, Message: "failed to create console log config"}
+	}
+	err = toError(api.configDataSetLogConfig(c.handle, logConfig))
+	if err != nil {
+		api.configLogDestroy(logConfig)
+	}
+	return err
 }
 
 func (c *ConfigData) SetFileLog(level LogLevel, dir, basename string, fileSizeMB, overdueDays uint32) error {
-	return unsupportedError("ConfigData.SetFileLog")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	if c == nil || c.handle == nil {
+		return invalidArgumentError("config data is nil")
+	}
+	dirBuf := nullTerminatedBytes(dir)
+	basenameBuf := nullTerminatedBytes(basename)
+	logConfig := api.configLogCreateFile(
+		int32(level),
+		unsafe.Pointer(&dirBuf[0]),
+		unsafe.Pointer(&basenameBuf[0]),
+		fileSizeMB,
+		overdueDays,
+	)
+	runtime.KeepAlive(dirBuf)
+	runtime.KeepAlive(basenameBuf)
+	if logConfig == nil {
+		return &Error{Code: InternalError, Message: "failed to create file log config"}
+	}
+	err = toError(api.configDataSetLogConfig(c.handle, logConfig))
+	if err != nil {
+		api.configLogDestroy(logConfig)
+	}
+	return err
 }
 
-func SetDefaultJiebaDictDir(dir string) {}
+func SetDefaultJiebaDictDir(dir string) {
+	api, err := puregoAPI()
+	if err != nil {
+		return
+	}
+	dirBuf, cDir := optionalCString(dir)
+	api.setDefaultJiebaDictDir(cDir)
+	runtime.KeepAlive(dirBuf)
+}
 
 func GetDefaultJiebaDictDir() string {
-	return ""
+	api, err := puregoAPI()
+	if err != nil {
+		return ""
+	}
+	return cStringFromPointer(api.getDefaultJiebaDictDir())
 }
 
 // IndexParams wraps zvec_index_params_t.
@@ -1105,39 +1222,117 @@ func (c *Collection) Flush() error {
 }
 
 func (c *Collection) GetSchema() (*CollectionSchema, error) {
-	return nil, unsupportedError("Collection.GetSchema")
+	api, err := puregoAPI()
+	if err != nil {
+		return nil, err
+	}
+	var cSchema unsafe.Pointer
+	if err := toError(api.collectionGetSchema(c.handle, &cSchema)); err != nil {
+		return nil, err
+	}
+	return &CollectionSchema{handle: cSchema}, nil
 }
 
 func (c *Collection) GetOptions() (*CollectionOptions, error) {
-	return nil, unsupportedError("Collection.GetOptions")
+	api, err := puregoAPI()
+	if err != nil {
+		return nil, err
+	}
+	var cOptions unsafe.Pointer
+	if err := toError(api.collectionGetOptions(c.handle, &cOptions)); err != nil {
+		return nil, err
+	}
+	return &CollectionOptions{handle: cOptions}, nil
 }
 
 func (c *Collection) GetStats() (*CollectionStats, error) {
-	return nil, unsupportedError("Collection.GetStats")
+	api, err := puregoAPI()
+	if err != nil {
+		return nil, err
+	}
+	var cStats unsafe.Pointer
+	if err := toError(api.collectionGetStats(c.handle, &cStats)); err != nil {
+		return nil, err
+	}
+	defer api.collectionStatsDestroy(cStats)
+
+	indexCount := int(api.collectionStatsIndexCount(cStats))
+	indexNames := make([]string, indexCount)
+	indexCompleteness := make([]float32, indexCount)
+	for i := 0; i < indexCount; i++ {
+		indexNames[i] = cStringFromPointer(api.collectionStatsIndexName(cStats, uintptr(i)))
+		indexCompleteness[i] = api.collectionStatsIndexCompleteness(cStats, uintptr(i))
+	}
+	return &CollectionStats{
+		DocCount:          api.collectionStatsDocCount(cStats),
+		IndexCount:        indexCount,
+		IndexNames:        indexNames,
+		IndexCompleteness: indexCompleteness,
+	}, nil
 }
 
 func (c *Collection) Optimize() error {
-	return unsupportedError("Collection.Optimize")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.collectionOptimize(c.handle))
 }
 
 func (c *Collection) CreateIndex(fieldName string, params *IndexParams) error {
-	return unsupportedError("Collection.CreateIndex")
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("index params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.collectionCreateIndex(c.handle, fieldName, params.handle))
 }
 
 func (c *Collection) DropIndex(fieldName string) error {
-	return unsupportedError("Collection.DropIndex")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.collectionDropIndex(c.handle, fieldName))
 }
 
 func (c *Collection) AddColumn(fieldSchema *FieldSchema, defaultExpr string) error {
-	return unsupportedError("Collection.AddColumn")
+	if fieldSchema == nil || fieldSchema.handle == nil {
+		return invalidArgumentError("field schema is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	exprBuf, cExpr := optionalCString(defaultExpr)
+	err = toError(api.collectionAddColumn(c.handle, fieldSchema.handle, cExpr))
+	runtime.KeepAlive(exprBuf)
+	return err
 }
 
 func (c *Collection) DropColumn(columnName string) error {
-	return unsupportedError("Collection.DropColumn")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.collectionDropColumn(c.handle, columnName))
 }
 
 func (c *Collection) AlterColumn(columnName, newName string, newSchema *FieldSchema) error {
-	return unsupportedError("Collection.AlterColumn")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	nameBuf, cNewName := optionalCString(newName)
+	var cNewSchema unsafe.Pointer
+	if newSchema != nil {
+		cNewSchema = newSchema.handle
+	}
+	err = toError(api.collectionAlterColumn(c.handle, columnName, cNewName, cNewSchema))
+	runtime.KeepAlive(nameBuf)
+	return err
 }
 
 func (c *Collection) Insert(docs []*Doc) (*WriteResult, error) {
@@ -1145,10 +1340,7 @@ func (c *Collection) Insert(docs []*Doc) (*WriteResult, error) {
 }
 
 func (c *Collection) Update(docs []*Doc) (*WriteResult, error) {
-	if len(docs) == 0 {
-		return &WriteResult{}, nil
-	}
-	return nil, unsupportedError("Collection.Update")
+	return c.writeDocs(docs, puregoFns.collectionUpdate)
 }
 
 func (c *Collection) Upsert(docs []*Doc) (*WriteResult, error) {
@@ -1181,11 +1373,27 @@ func (c *Collection) Delete(pks []string) (*WriteResult, error) {
 	if len(pks) == 0 {
 		return &WriteResult{}, nil
 	}
-	return nil, unsupportedError("Collection.Delete")
+	api, err := puregoAPI()
+	if err != nil {
+		return nil, err
+	}
+	ptrs, keep := cStringArray(pks)
+	var successCount, errorCount uintptr
+	err = toError(api.collectionDelete(c.handle, unsafe.Pointer(&ptrs[0]), uintptr(len(ptrs)), &successCount, &errorCount))
+	runtime.KeepAlive(ptrs)
+	runtime.KeepAlive(keep)
+	if err != nil {
+		return nil, err
+	}
+	return &WriteResult{SuccessCount: uint64(successCount), ErrorCount: uint64(errorCount)}, nil
 }
 
 func (c *Collection) DeleteByFilter(filter string) error {
-	return unsupportedError("Collection.DeleteByFilter")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.collectionDeleteByFilter(c.handle, filter))
 }
 
 func (c *Collection) Query(query *SearchQuery) ([]*Doc, error) {
@@ -1229,7 +1437,42 @@ func (c *Collection) Fetch(primaryKeys []string, opts *FetchOptions) ([]*Doc, er
 	if len(primaryKeys) == 0 {
 		return nil, nil
 	}
-	return nil, unsupportedError("Collection.Fetch")
+	api, err := puregoAPI()
+	if err != nil {
+		return nil, err
+	}
+	pkPtrs, pkKeep := cStringArray(primaryKeys)
+	var fieldPtrs []unsafe.Pointer
+	var fieldKeep [][]byte
+	var cOutputFields unsafe.Pointer
+	if opts != nil && len(opts.OutputFields) > 0 {
+		fieldPtrs, fieldKeep = cStringArray(opts.OutputFields)
+		cOutputFields = unsafe.Pointer(&fieldPtrs[0])
+	}
+	var includeVector bool
+	if opts != nil {
+		includeVector = opts.IncludeVector
+	}
+	var cDocs unsafe.Pointer
+	var foundCount uintptr
+	err = toError(api.collectionFetch(
+		c.handle,
+		unsafe.Pointer(&pkPtrs[0]),
+		uintptr(len(pkPtrs)),
+		cOutputFields,
+		uintptr(len(fieldPtrs)),
+		includeVector,
+		&cDocs,
+		&foundCount,
+	))
+	runtime.KeepAlive(pkPtrs)
+	runtime.KeepAlive(pkKeep)
+	runtime.KeepAlive(fieldPtrs)
+	runtime.KeepAlive(fieldKeep)
+	if err != nil {
+		return nil, err
+	}
+	return wrapDocResults(cDocs, foundCount), nil
 }
 
 func wrapDocResults(cResults unsafe.Pointer, count uintptr) []*Doc {
@@ -1241,6 +1484,8 @@ func wrapDocResults(cResults unsafe.Pointer, count uintptr) []*Doc {
 	for i := 0; i < int(count); i++ {
 		docs[i] = &Doc{handle: resultSlice[i]}
 	}
+	// Match the cgo wrapper: free only the returned pointer array here; callers
+	// still own and must Destroy/FreeDocs the individual document handles.
 	if puregoFns.free != nil {
 		puregoFns.free(cResults)
 	}
@@ -1931,51 +2176,150 @@ func (q *SearchQuery) GetFTS() *FTS {
 	return &FTS{handle: handle, owned: false}
 }
 
-// GroupBySearchQuery is not part of the initial purego POC binding.
 type GroupBySearchQuery struct {
 	handle unsafe.Pointer
 }
 
 func NewGroupBySearchQuery() *GroupBySearchQuery {
-	return &GroupBySearchQuery{}
+	api, err := puregoAPI()
+	if err != nil {
+		return nil
+	}
+	handle := api.groupByQueryCreate()
+	if handle == nil {
+		return nil
+	}
+	return &GroupBySearchQuery{handle: handle}
 }
 
-func (q *GroupBySearchQuery) Destroy() { q.handle = nil }
+func (q *GroupBySearchQuery) Destroy() {
+	if q != nil && q.handle != nil {
+		if api, err := puregoAPI(); err == nil {
+			api.groupByQueryDestroy(q.handle)
+		}
+		q.handle = nil
+	}
+}
+
 func (q *GroupBySearchQuery) SetFieldName(name string) error {
-	return unsupportedError("GroupBySearchQuery.SetFieldName")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.groupByQuerySetFieldName(q.handle, name))
 }
+
 func (q *GroupBySearchQuery) SetGroupByFieldName(name string) error {
-	return unsupportedError("GroupBySearchQuery.SetGroupByFieldName")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.groupByQuerySetGroupByFieldName(q.handle, name))
 }
+
 func (q *GroupBySearchQuery) SetGroupCount(count uint32) error {
-	return unsupportedError("GroupBySearchQuery.SetGroupCount")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.groupByQuerySetGroupCount(q.handle, count))
 }
+
 func (q *GroupBySearchQuery) SetGroupTopK(topk uint32) error {
-	return unsupportedError("GroupBySearchQuery.SetGroupTopK")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.groupByQuerySetGroupTopK(q.handle, topk))
 }
+
 func (q *GroupBySearchQuery) SetQueryVector(data []float32) error {
 	if len(data) == 0 {
 		return invalidArgumentError("query vector cannot be empty")
 	}
-	return unsupportedError("GroupBySearchQuery.SetQueryVector")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.groupByQuerySetQueryVector(q.handle, unsafe.Pointer(&data[0]), uintptr(len(data)*4)))
+	runtime.KeepAlive(data)
+	return err
 }
+
 func (q *GroupBySearchQuery) SetFilter(filter string) error {
-	return unsupportedError("GroupBySearchQuery.SetFilter")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.groupByQuerySetFilter(q.handle, filter))
 }
+
 func (q *GroupBySearchQuery) SetIncludeVector(include bool) error {
-	return unsupportedError("GroupBySearchQuery.SetIncludeVector")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	return toError(api.groupByQuerySetIncludeVector(q.handle, include))
 }
+
 func (q *GroupBySearchQuery) SetOutputFields(fields []string) error {
-	return unsupportedError("GroupBySearchQuery.SetOutputFields")
+	if len(fields) == 0 {
+		return nil
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	ptrs, keep := cStringArray(fields)
+	err = toError(api.groupByQuerySetOutputFields(q.handle, unsafe.Pointer(&ptrs[0]), uintptr(len(ptrs))))
+	runtime.KeepAlive(ptrs)
+	runtime.KeepAlive(keep)
+	return err
 }
+
 func (q *GroupBySearchQuery) SetHNSWParams(params *HNSWQueryParams) error {
-	return unsupportedError("GroupBySearchQuery.SetHNSWParams")
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("HNSW query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.groupByQuerySetHNSWParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
 }
+
 func (q *GroupBySearchQuery) SetIVFParams(params *IVFQueryParams) error {
-	return unsupportedError("GroupBySearchQuery.SetIVFParams")
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("IVF query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.groupByQuerySetIVFParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
 }
+
 func (q *GroupBySearchQuery) SetFlatParams(params *FlatQueryParams) error {
-	return unsupportedError("GroupBySearchQuery.SetFlatParams")
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("Flat query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.groupByQuerySetFlatParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
 }
 
 type MultiQuery struct {
@@ -2180,7 +2524,19 @@ func (q *SubQuery) SetSparseVector(indices []uint32, values []float32) error {
 	if len(indices) == 0 {
 		return invalidArgumentError("sparse vector cannot be empty")
 	}
-	return unsupportedError("SubQuery.SetSparseVector")
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	err = toError(api.subQuerySetSparseVector(
+		q.handle,
+		unsafe.Pointer(&indices[0]),
+		unsafe.Pointer(&values[0]),
+		uintptr(len(indices)),
+	))
+	runtime.KeepAlive(indices)
+	runtime.KeepAlive(values)
+	return err
 }
 
 func (q *SubQuery) SetHNSWParams(params *HNSWQueryParams) error {
