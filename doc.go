@@ -1,3 +1,5 @@
+//go:build !purego
+
 // Download pre-built C libraries for the current platform:
 //
 //go:generate go run ./cmd/download-libs

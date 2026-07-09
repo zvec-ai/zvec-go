@@ -1,3 +1,5 @@
+//go:build !purego
+
 // Package zvec provides Go bindings for the zvec vector database library.
 //
 // Zvec is an open-source, in-process vector database — lightweight, lightning-fast,
