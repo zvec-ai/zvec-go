@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -23,6 +24,7 @@ const (
 
 var (
 	puregoLoadMu        sync.Mutex
+	puregoLoaded        atomic.Bool
 	puregoHandle        uintptr
 	puregoFns           zvecPuregoAPI
 	puregoBackendLoader = loadPuregoBackend
@@ -257,14 +259,20 @@ type zvecPuregoAPI struct {
 }
 
 func puregoAPI() (*zvecPuregoAPI, error) {
+	if puregoLoaded.Load() {
+		return &puregoFns, nil
+	}
+
 	puregoLoadMu.Lock()
 	defer puregoLoadMu.Unlock()
 	if puregoHandle != 0 {
+		puregoLoaded.Store(true)
 		return &puregoFns, nil
 	}
 	if err := puregoBackendLoader(); err != nil {
 		return nil, err
 	}
+	puregoLoaded.Store(true)
 	return &puregoFns, nil
 }
 
@@ -550,7 +558,7 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.subQuerySetFTSParams, "zvec_sub_query_set_fts_params")
 	register(&puregoFns.subQuerySetFTS, "zvec_sub_query_set_fts")
 
-	return nil
+	return bindDirectPuregoSymbols(&puregoFns, handle)
 }
 
 func zvecLibraryCandidates() []string {

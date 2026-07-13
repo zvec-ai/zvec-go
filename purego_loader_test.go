@@ -9,9 +9,11 @@ import (
 
 func TestPuregoAPIRetriesAfterLoadFailure(t *testing.T) {
 	puregoLoadMu.Lock()
+	savedLoaded := puregoLoaded.Load()
 	savedHandle := puregoHandle
 	savedFns := puregoFns
 	savedLoader := puregoBackendLoader
+	puregoLoaded.Store(false)
 	puregoHandle = 0
 	puregoFns = zvecPuregoAPI{}
 	attempts := 0
@@ -27,6 +29,7 @@ func TestPuregoAPIRetriesAfterLoadFailure(t *testing.T) {
 
 	t.Cleanup(func() {
 		puregoLoadMu.Lock()
+		puregoLoaded.Store(savedLoaded)
 		puregoHandle = savedHandle
 		puregoFns = savedFns
 		puregoBackendLoader = savedLoader
@@ -44,6 +47,38 @@ func TestPuregoAPIRetriesAfterLoadFailure(t *testing.T) {
 	}
 	if attempts != 2 {
 		t.Fatalf("loader attempts = %d, want 2", attempts)
+	}
+}
+
+func TestPuregoAPIFastPath(t *testing.T) {
+	puregoLoadMu.Lock()
+	savedLoaded := puregoLoaded.Load()
+	savedHandle := puregoHandle
+	savedFns := puregoFns
+	savedLoader := puregoBackendLoader
+	puregoLoaded.Store(true)
+	puregoHandle = 1
+	puregoBackendLoader = func() error {
+		t.Fatal("loaded fast path called backend loader")
+		return nil
+	}
+	puregoLoadMu.Unlock()
+
+	t.Cleanup(func() {
+		puregoLoadMu.Lock()
+		puregoLoaded.Store(savedLoaded)
+		puregoHandle = savedHandle
+		puregoFns = savedFns
+		puregoBackendLoader = savedLoader
+		puregoLoadMu.Unlock()
+	})
+
+	api, err := puregoAPI()
+	if err != nil {
+		t.Fatalf("puregoAPI() failed: %v", err)
+	}
+	if api != &puregoFns {
+		t.Fatal("puregoAPI() returned an unexpected function table")
 	}
 }
 

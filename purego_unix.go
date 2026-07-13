@@ -22,3 +22,7 @@ func openZvecLibrary(path string) (uintptr, error) {
 func closeZvecLibrary(handle uintptr) error {
 	return purego.Dlclose(handle)
 }
+
+func lookupZvecSymbol(handle uintptr, name string) (uintptr, error) {
+	return purego.Dlsym(handle, name)
+}

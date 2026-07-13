@@ -16,3 +16,7 @@ func openZvecLibrary(path string) (uintptr, error) {
 func closeZvecLibrary(handle uintptr) error {
 	return syscall.FreeLibrary(syscall.Handle(handle))
 }
+
+func lookupZvecSymbol(handle uintptr, name string) (uintptr, error) {
+	return syscall.GetProcAddress(syscall.Handle(handle), name)
+}
