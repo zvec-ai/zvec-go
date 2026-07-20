@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g., v0.5.1)'
+        description: 'Release tag (e.g., v0.6.0)'
         required: true
         type: string
 
@@ -375,7 +375,7 @@ jobs:
           # 2. Download corresponding platform pre-built library.
           #    If linking fails due to GLIBC incompatibility, build from source instead:
           #    make build-zvec
-          go run ./cmd/download-libs -version v0.5.1
+          go run ./cmd/download-libs -version v0.6.0
 
           # 3. Back to your project, replace with local source code
           cd /path/to/project

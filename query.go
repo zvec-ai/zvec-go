@@ -92,12 +92,74 @@ func NewFlatQueryParams(isUsingRefiner bool, scaleFactor float32) *FlatQueryPara
 	return &FlatQueryParams{handle: handle}
 }
 
+// DiskANNQueryParams represents query parameters for DiskANN index.
+type DiskANNQueryParams struct {
+	handle *C.zvec_diskann_query_params_t
+}
+
+// NewDiskANNQueryParams creates a new DiskANN query parameters instance.
+func NewDiskANNQueryParams(listSize int) *DiskANNQueryParams {
+	handle := C.zvec_query_params_diskann_create(C.int(listSize))
+	if handle == nil {
+		return nil
+	}
+	return &DiskANNQueryParams{handle: handle}
+}
+
 // Destroy releases the Flat query parameters resources.
 func (p *FlatQueryParams) Destroy() {
 	if p.handle != nil {
 		C.zvec_query_params_flat_destroy(p.handle)
 		p.handle = nil
 	}
+}
+
+// Destroy releases the DiskANN query parameters resources.
+func (p *DiskANNQueryParams) Destroy() {
+	if p.handle != nil {
+		C.zvec_query_params_diskann_destroy(p.handle)
+		p.handle = nil
+	}
+}
+
+// SetListSize sets the search frontier size.
+func (p *DiskANNQueryParams) SetListSize(listSize int) error {
+	return toError(C.zvec_query_params_diskann_set_list_size(p.handle, C.int(listSize)))
+}
+
+// GetListSize returns the search frontier size.
+func (p *DiskANNQueryParams) GetListSize() int {
+	return int(C.zvec_query_params_diskann_get_list_size(p.handle))
+}
+
+// SetRadius sets the search radius.
+func (p *DiskANNQueryParams) SetRadius(radius float32) error {
+	return toError(C.zvec_query_params_diskann_set_radius(p.handle, C.float(radius)))
+}
+
+// GetRadius returns the search radius.
+func (p *DiskANNQueryParams) GetRadius() float32 {
+	return float32(C.zvec_query_params_diskann_get_radius(p.handle))
+}
+
+// SetIsLinear sets the linear search mode.
+func (p *DiskANNQueryParams) SetIsLinear(isLinear bool) error {
+	return toError(C.zvec_query_params_diskann_set_is_linear(p.handle, C.bool(isLinear)))
+}
+
+// GetIsLinear returns the linear search mode.
+func (p *DiskANNQueryParams) GetIsLinear() bool {
+	return bool(C.zvec_query_params_diskann_get_is_linear(p.handle))
+}
+
+// SetIsUsingRefiner sets whether to use refiner.
+func (p *DiskANNQueryParams) SetIsUsingRefiner(isUsingRefiner bool) error {
+	return toError(C.zvec_query_params_diskann_set_is_using_refiner(p.handle, C.bool(isUsingRefiner)))
+}
+
+// GetIsUsingRefiner returns whether to use refiner.
+func (p *DiskANNQueryParams) GetIsUsingRefiner() bool {
+	return bool(C.zvec_query_params_diskann_get_is_using_refiner(p.handle))
 }
 
 // FTSQueryParams represents query parameters for FTS index.
@@ -278,6 +340,16 @@ func (q *SearchQuery) SetFlatParams(params *FlatQueryParams) error {
 	return err
 }
 
+// SetDiskANNParams sets the DiskANN query parameters.
+// Ownership of params is transferred to the query on success.
+func (q *SearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	err := toError(C.zvec_vector_query_set_diskann_params(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil // ownership transferred
+	}
+	return err
+}
+
 // SetFTSParams sets the FTS query parameters.
 // Ownership of params is transferred to the query on success.
 func (q *SearchQuery) SetFTSParams(params *FTSQueryParams) error {
@@ -346,9 +418,9 @@ func (q *GroupBySearchQuery) SetGroupCount(count uint32) error {
 	return toError(C.zvec_group_by_vector_query_set_group_count(q.handle, C.uint32_t(count)))
 }
 
-// SetGroupTopK sets the group top-k parameter.
-func (q *GroupBySearchQuery) SetGroupTopK(topk uint32) error {
-	return toError(C.zvec_group_by_vector_query_set_group_topk(q.handle, C.uint32_t(topk)))
+// SetTopkPerGroup sets the maximum number of results per group.
+func (q *GroupBySearchQuery) SetTopkPerGroup(topk uint32) error {
+	return toError(C.zvec_group_by_vector_query_set_topk_per_group(q.handle, C.uint32_t(topk)))
 }
 
 // SetQueryVector sets the query vector data.
@@ -417,6 +489,16 @@ func (q *GroupBySearchQuery) SetIVFParams(params *IVFQueryParams) error {
 // SetFlatParams sets the Flat query parameters.
 func (q *GroupBySearchQuery) SetFlatParams(params *FlatQueryParams) error {
 	err := toError(C.zvec_group_by_vector_query_set_flat_params(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil // ownership transferred
+	}
+	return err
+}
+
+// SetDiskANNParams sets the DiskANN query parameters.
+// Ownership of params is transferred to the query on success.
+func (q *GroupBySearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	err := toError(C.zvec_group_by_vector_query_set_diskann_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred
 	}

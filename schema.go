@@ -84,6 +84,23 @@ func NewFlatIndexParams(metric MetricType) (*IndexParams, error) {
 	return params, nil
 }
 
+// NewDiskANNIndexParams creates DiskANN index parameters with the specified metric type.
+func NewDiskANNIndexParams(metric MetricType, maxDegree, listSize, pqChunkNum int) (*IndexParams, error) {
+	params := NewIndexParams(IndexTypeDiskANN)
+	if params == nil {
+		return nil, &Error{Code: InternalError, Message: "failed to create DiskANN index params"}
+	}
+	if err := params.SetMetricType(metric); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	if err := params.SetDiskANNParams(maxDegree, listSize, pqChunkNum); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
+}
+
 // NewFTSIndexParams creates FTS index parameters with the specified tokenizer and filters.
 func NewFTSIndexParams(tokenizerName string, filters []string, extraParams string) (*IndexParams, error) {
 	params := NewIndexParams(IndexTypeFTS)
@@ -143,6 +160,26 @@ func (p *IndexParams) GetHNSWM() int {
 // GetHNSWEfConstruction returns the HNSW ef_construction parameter.
 func (p *IndexParams) GetHNSWEfConstruction() int {
 	return int(C.zvec_index_params_get_hnsw_ef_construction(p.handle))
+}
+
+// SetDiskANNParams sets DiskANN specific parameters.
+func (p *IndexParams) SetDiskANNParams(maxDegree, listSize, pqChunkNum int) error {
+	return toError(C.zvec_index_params_set_diskann_params(p.handle, C.int(maxDegree), C.int(listSize), C.int(pqChunkNum)))
+}
+
+// GetDiskANNMaxDegree returns the DiskANN max_degree parameter.
+func (p *IndexParams) GetDiskANNMaxDegree() int {
+	return int(C.zvec_index_params_get_diskann_max_degree(p.handle))
+}
+
+// GetDiskANNListSize returns the DiskANN list_size parameter.
+func (p *IndexParams) GetDiskANNListSize() int {
+	return int(C.zvec_index_params_get_diskann_list_size(p.handle))
+}
+
+// GetDiskANNPQChunkNum returns the DiskANN pq_chunk_num parameter.
+func (p *IndexParams) GetDiskANNPQChunkNum() int {
+	return int(C.zvec_index_params_get_diskann_pq_chunk_num(p.handle))
 }
 
 // SetIVFParams sets IVF specific parameters.

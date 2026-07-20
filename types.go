@@ -52,6 +52,7 @@ const (
 	IndexTypeHNSW      IndexType = 1
 	IndexTypeIVF       IndexType = 2
 	IndexTypeFlat      IndexType = 3
+	IndexTypeDiskANN   IndexType = 5
 	IndexTypeInvert    IndexType = 10
 	IndexTypeFTS       IndexType = 11
 )
