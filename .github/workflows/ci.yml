@@ -44,6 +44,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -153,6 +154,32 @@ jobs:
         shell: pwsh
         env:
           CGO_ENABLED: "1"
+
+      - name: Run purego integration tests (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          ZVEC_LIB=$(find "${{ github.workspace }}/zvec/build" -type f \( -name 'libzvec_c_api.so' -o -name 'libzvec_c_api.dylib' \) -print -quit)
+          if [ -z "$ZVEC_LIB" ]; then
+            echo "zvec C API shared library not found"
+            exit 1
+          fi
+          ZVEC_LIBRARY_PATH="$ZVEC_LIB" go test -tags integration -count=1 -v . 2>&1
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+
+      - name: Run purego integration tests (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $zvecLib = Get-ChildItem -Path "${{ github.workspace }}\zvec\build" -Recurse -Filter zvec_c_api.dll | Select-Object -First 1
+          if (-not $zvecLib) {
+            throw "zvec C API shared library not found"
+          }
+          $env:ZVEC_LIBRARY_PATH = $zvecLib.FullName
+          go test -tags integration -count=1 -v .
+        shell: pwsh
+        env:
+          CGO_ENABLED: "0"
 
       - name: Run Go tests with race detector (Unix)
         if: runner.os != 'Windows'

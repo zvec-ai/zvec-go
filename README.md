@@ -2,7 +2,7 @@
 
 English | [中文](README_CN.md)
 
-Go bindings for the [zvec](https://github.com/alibaba/zvec) vector database, powered by cgo wrapping the zvec C-API.
+Go bindings for the [zvec](https://github.com/alibaba/zvec) vector database. The SDK uses cgo when enabled and automatically switches to runtime FFI when `CGO_ENABLED=0`.
 
 ## Introduction
 
@@ -11,7 +11,7 @@ zvec is a high-performance vector database supporting multiple index types (HNSW
 ## Prerequisites
 
 - **Go** ≥ 1.21
-- **C compiler** (gcc or clang) for cgo
+- **C compiler** (gcc or clang) when building with cgo
 - **CMake** ≥ 3.20 and **Ninja** (for building the C-API library)
 
 ## Quick Start
@@ -49,6 +49,8 @@ go test -tags integration -count=1 -v ./...
 
 zvec-go provides **two build modes** to suit different users:
 
+Backend selection is automatic: `CGO_ENABLED=1` uses cgo, while `CGO_ENABLED=0` uses runtime FFI without requiring a build tag. `-tags purego` can still be used to force the FFI backend. Both backends require the zvec C-API shared library at runtime; set `ZVEC_LIBRARY_PATH` when it is not in a standard SDK or executable-relative location.
+
 ### Mode 1: Vendor Mode (Default — Pre-built Libraries)
 
 Pre-built libraries are distributed via GitHub Releases.
@@ -69,8 +71,11 @@ go run ./cmd/download-libs -version v0.6.0
 #   require github.com/zvec-ai/zvec-go v0.6.0
 #   replace github.com/zvec-ai/zvec-go => /path/to/zvec-go
 
-# 3. Build (cgo is required)
+# 3a. Build with cgo (default when cgo is enabled)
 CGO_ENABLED=1 go build .
+
+# 3b. Or build with runtime FFI (no C compiler required)
+CGO_ENABLED=0 go build .
 ```
 
 **Alternative: Using with go get (requires manual library download)**
@@ -83,7 +88,7 @@ go get github.com/zvec-ai/zvec-go
 #    https://github.com/zvec-ai/zvec-go/releases/download/v0.6.0/zvec-libs-darwin-arm64.tar.gz
 #    Extract to your project's lib/ directory
 
-# 3. Build (cgo is required)
+# 3. Build with cgo
 CGO_CFLAGS="-I$(pwd)/lib/include" \
 CGO_LDFLAGS="-L$(pwd)/lib/darwin_arm64 -lzvec_c_api -Wl,-rpath,$(pwd)/lib/darwin_arm64" \
 CGO_ENABLED=1 go build .

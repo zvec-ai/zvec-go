@@ -1,3 +1,5 @@
+//go:build cgo && !purego
+
 package zvec
 
 /*
@@ -23,9 +25,8 @@ func NewFTS() *FTS {
 }
 
 // Destroy releases the FTS query payload resources.
-// Must not be called on FTS instances returned by SearchQuery.GetFTS().
 func (f *FTS) Destroy() {
-	if f.handle != nil && f.owned {
+	if f != nil && f.handle != nil && f.owned {
 		C.zvec_fts_destroy(f.handle)
 		f.handle = nil
 	}
@@ -35,6 +36,7 @@ func (f *FTS) Destroy() {
 func (f *FTS) SetQueryString(query string) error {
 	cQuery := C.CString(query)
 	defer C.free(unsafe.Pointer(cQuery))
+	defer lockErrorThread()()
 	return toError(C.zvec_fts_set_query_string(f.handle, cQuery))
 }
 
@@ -47,6 +49,7 @@ func (f *FTS) GetQueryString() string {
 func (f *FTS) SetMatchString(match string) error {
 	cMatch := C.CString(match)
 	defer C.free(unsafe.Pointer(cMatch))
+	defer lockErrorThread()()
 	return toError(C.zvec_fts_set_match_string(f.handle, cMatch))
 }
 

@@ -1,3 +1,5 @@
+//go:build cgo && !purego
+
 package zvec
 
 /*
@@ -129,6 +131,7 @@ func (p *IndexParams) GetType() IndexType {
 
 // SetMetricType sets the metric type for vector indexes.
 func (p *IndexParams) SetMetricType(metric MetricType) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_index_params_set_metric_type(p.handle, C.zvec_metric_type_t(metric)))
 }
 
@@ -139,6 +142,7 @@ func (p *IndexParams) GetMetricType() MetricType {
 
 // SetQuantizeType sets the quantize type for vector indexes.
 func (p *IndexParams) SetQuantizeType(quantize QuantizeType) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_index_params_set_quantize_type(p.handle, C.zvec_quantize_type_t(quantize)))
 }
 
@@ -149,6 +153,7 @@ func (p *IndexParams) GetQuantizeType() QuantizeType {
 
 // SetHNSWParams sets HNSW specific parameters.
 func (p *IndexParams) SetHNSWParams(m, efConstruction int) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_index_params_set_hnsw_params(p.handle, C.int(m), C.int(efConstruction)))
 }
 
@@ -184,11 +189,13 @@ func (p *IndexParams) GetDiskANNPQChunkNum() int {
 
 // SetIVFParams sets IVF specific parameters.
 func (p *IndexParams) SetIVFParams(nList, nIters int, useSoar bool) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_index_params_set_ivf_params(p.handle, C.int(nList), C.int(nIters), C.bool(useSoar)))
 }
 
 // SetInvertParams sets invert index specific parameters.
 func (p *IndexParams) SetInvertParams(enableRangeOpt, enableWildcard bool) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_index_params_set_invert_params(p.handle, C.bool(enableRangeOpt), C.bool(enableWildcard)))
 }
 
@@ -214,6 +221,7 @@ func (p *IndexParams) SetFTSParams(tokenizerName string, filters []string, extra
 		}
 		defer C.zvec_string_array_destroy(cFilters)
 	}
+	defer lockErrorThread()()
 	return toError(C.zvec_index_params_set_fts_params(p.handle, cTokenizer, cFilters, cExtra))
 }
 
@@ -222,6 +230,7 @@ func (p *IndexParams) GetFTSParams() (tokenizerName string, filters []string, ex
 	var cTokenizer *C.char
 	var cFilters *C.zvec_string_array_t
 	var cExtra *C.char
+	defer lockErrorThread()()
 	err = toError(C.zvec_index_params_get_fts_params(p.handle, &cTokenizer, &cFilters, &cExtra))
 	if err != nil {
 		return
@@ -248,15 +257,28 @@ func (p *IndexParams) GetFTSParams() (tokenizerName string, filters []string, ex
 
 // FieldSchema wraps zvec_field_schema_t (opaque pointer).
 type FieldSchema struct {
-	handle *C.zvec_field_schema_t
-	owned  bool
+	handle          *C.zvec_field_schema_t
+	owned           bool
+	owner           *CollectionSchema
+	ownerGeneration uint64
+}
+
+func (f *FieldSchema) validHandle() *C.zvec_field_schema_t {
+	if f == nil || f.handle == nil {
+		return nil
+	}
+	if f.owner != nil && (f.owner.handle == nil || f.owner.generation != f.ownerGeneration) {
+		f.handle = nil
+		f.owner = nil
+		return nil
+	}
+	return f.handle
 }
 
 // NewFieldSchema creates a new field schema with the specified parameters.
 func NewFieldSchema(name string, dataType DataType, nullable bool, dimension uint32) *FieldSchema {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
-
 	handle := C.zvec_field_schema_create(cName, C.zvec_data_type_t(dataType), C.bool(nullable), C.uint32_t(dimension))
 	if handle == nil {
 		return nil
@@ -266,94 +288,148 @@ func NewFieldSchema(name string, dataType DataType, nullable bool, dimension uin
 
 // Destroy releases the field schema resources if owned.
 func (f *FieldSchema) Destroy() {
-	if f.handle != nil && f.owned {
-		C.zvec_field_schema_destroy(f.handle)
-		f.handle = nil
+	if f == nil {
+		return
 	}
+	handle := f.validHandle()
+	if handle != nil && f.owned {
+		C.zvec_field_schema_destroy(handle)
+	}
+	f.handle = nil
+	f.owner = nil
 }
 
 // GetName returns the field name.
 func (f *FieldSchema) GetName() string {
-	return C.GoString(C.zvec_field_schema_get_name(f.handle))
+	handle := f.validHandle()
+	if handle == nil {
+		return ""
+	}
+	return C.GoString(C.zvec_field_schema_get_name(handle))
 }
 
 // SetName sets the field name.
 func (f *FieldSchema) SetName(name string) error {
+	handle := f.validHandle()
+	if handle == nil {
+		return invalidArgumentError("field schema is no longer valid")
+	}
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
-	return toError(C.zvec_field_schema_set_name(f.handle, cName))
+	defer lockErrorThread()()
+	return toError(C.zvec_field_schema_set_name(handle, cName))
 }
 
 // GetDataType returns the field data type.
 func (f *FieldSchema) GetDataType() DataType {
-	return DataType(C.zvec_field_schema_get_data_type(f.handle))
+	handle := f.validHandle()
+	if handle == nil {
+		return DataTypeUndefined
+	}
+	return DataType(C.zvec_field_schema_get_data_type(handle))
 }
 
 // SetDataType sets the field data type.
 func (f *FieldSchema) SetDataType(dataType DataType) error {
-	return toError(C.zvec_field_schema_set_data_type(f.handle, C.zvec_data_type_t(dataType)))
+	handle := f.validHandle()
+	if handle == nil {
+		return invalidArgumentError("field schema is no longer valid")
+	}
+	defer lockErrorThread()()
+	return toError(C.zvec_field_schema_set_data_type(handle, C.zvec_data_type_t(dataType)))
 }
 
 // IsNullable returns whether the field is nullable.
 func (f *FieldSchema) IsNullable() bool {
-	return bool(C.zvec_field_schema_is_nullable(f.handle))
+	handle := f.validHandle()
+	return handle != nil && bool(C.zvec_field_schema_is_nullable(handle))
 }
 
 // SetNullable sets whether the field is nullable.
 func (f *FieldSchema) SetNullable(nullable bool) error {
-	return toError(C.zvec_field_schema_set_nullable(f.handle, C.bool(nullable)))
+	handle := f.validHandle()
+	if handle == nil {
+		return invalidArgumentError("field schema is no longer valid")
+	}
+	defer lockErrorThread()()
+	return toError(C.zvec_field_schema_set_nullable(handle, C.bool(nullable)))
 }
 
 // GetDimension returns the field dimension (for vector fields).
 func (f *FieldSchema) GetDimension() uint32 {
-	return uint32(C.zvec_field_schema_get_dimension(f.handle))
+	handle := f.validHandle()
+	if handle == nil {
+		return 0
+	}
+	return uint32(C.zvec_field_schema_get_dimension(handle))
 }
 
 // SetDimension sets the field dimension (for vector fields).
 func (f *FieldSchema) SetDimension(dimension uint32) error {
-	return toError(C.zvec_field_schema_set_dimension(f.handle, C.uint32_t(dimension)))
+	handle := f.validHandle()
+	if handle == nil {
+		return invalidArgumentError("field schema is no longer valid")
+	}
+	defer lockErrorThread()()
+	return toError(C.zvec_field_schema_set_dimension(handle, C.uint32_t(dimension)))
 }
 
 // IsVectorField returns whether the field is a vector field (dense or sparse).
 func (f *FieldSchema) IsVectorField() bool {
-	return bool(C.zvec_field_schema_is_vector_field(f.handle))
+	handle := f.validHandle()
+	return handle != nil && bool(C.zvec_field_schema_is_vector_field(handle))
 }
 
 // IsDenseVector returns whether the field is a dense vector field.
 func (f *FieldSchema) IsDenseVector() bool {
-	return bool(C.zvec_field_schema_is_dense_vector(f.handle))
+	handle := f.validHandle()
+	return handle != nil && bool(C.zvec_field_schema_is_dense_vector(handle))
 }
 
 // IsSparseVector returns whether the field is a sparse vector field.
 func (f *FieldSchema) IsSparseVector() bool {
-	return bool(C.zvec_field_schema_is_sparse_vector(f.handle))
+	handle := f.validHandle()
+	return handle != nil && bool(C.zvec_field_schema_is_sparse_vector(handle))
 }
 
 // HasIndex returns whether the field has an index.
 func (f *FieldSchema) HasIndex() bool {
-	return bool(C.zvec_field_schema_has_index(f.handle))
+	handle := f.validHandle()
+	return handle != nil && bool(C.zvec_field_schema_has_index(handle))
 }
 
 // GetIndexType returns the index type of the field.
 func (f *FieldSchema) GetIndexType() IndexType {
-	return IndexType(C.zvec_field_schema_get_index_type(f.handle))
+	handle := f.validHandle()
+	if handle == nil {
+		return IndexTypeUndefined
+	}
+	return IndexType(C.zvec_field_schema_get_index_type(handle))
 }
 
 // SetIndexParams sets the index parameters for the field.
 func (f *FieldSchema) SetIndexParams(params *IndexParams) error {
-	return toError(C.zvec_field_schema_set_index_params(f.handle, params.handle))
+	handle := f.validHandle()
+	if handle == nil {
+		return invalidArgumentError("field schema is no longer valid")
+	}
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("index params is nil")
+	}
+	defer lockErrorThread()()
+	return toError(C.zvec_field_schema_set_index_params(handle, params.handle))
 }
 
 // CollectionSchema wraps zvec_collection_schema_t (opaque pointer).
 type CollectionSchema struct {
-	handle *C.zvec_collection_schema_t
+	handle     *C.zvec_collection_schema_t
+	generation uint64
 }
 
 // NewCollectionSchema creates a new collection schema with the specified name.
 func NewCollectionSchema(name string) *CollectionSchema {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
-
 	handle := C.zvec_collection_schema_create(cName)
 	if handle == nil {
 		return nil
@@ -363,9 +439,10 @@ func NewCollectionSchema(name string) *CollectionSchema {
 
 // Destroy releases the collection schema resources.
 func (s *CollectionSchema) Destroy() {
-	if s.handle != nil {
+	if s != nil && s.handle != nil {
 		C.zvec_collection_schema_destroy(s.handle)
 		s.handle = nil
+		s.generation++
 	}
 }
 
@@ -378,12 +455,22 @@ func (s *CollectionSchema) GetName() string {
 func (s *CollectionSchema) SetName(name string) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_schema_set_name(s.handle, cName))
 }
 
 // AddField adds a field to the collection schema.
 func (s *CollectionSchema) AddField(field *FieldSchema) error {
-	return toError(C.zvec_collection_schema_add_field(s.handle, field.handle))
+	fieldHandle := field.validHandle()
+	if fieldHandle == nil {
+		return invalidArgumentError("field schema is nil")
+	}
+	defer lockErrorThread()()
+	err := toError(C.zvec_collection_schema_add_field(s.handle, fieldHandle))
+	if err == nil {
+		s.generation++
+	}
+	return err
 }
 
 // HasField returns whether the collection has a field with the specified name.
@@ -401,28 +488,43 @@ func (s *CollectionSchema) GetField(name string) *FieldSchema {
 	if handle == nil {
 		return nil
 	}
-	return &FieldSchema{handle: handle, owned: false}
+	return &FieldSchema{handle: handle, owned: false, owner: s, ownerGeneration: s.generation}
 }
 
 // DropField drops a field from the collection schema.
 func (s *CollectionSchema) DropField(name string) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
-	return toError(C.zvec_collection_schema_drop_field(s.handle, cName))
+	defer lockErrorThread()()
+	err := toError(C.zvec_collection_schema_drop_field(s.handle, cName))
+	if err == nil {
+		s.generation++
+	}
+	return err
 }
 
 // AddIndex adds an index to a field.
 func (s *CollectionSchema) AddIndex(fieldName string, params *IndexParams) error {
 	cFieldName := C.CString(fieldName)
 	defer C.free(unsafe.Pointer(cFieldName))
-	return toError(C.zvec_collection_schema_add_index(s.handle, cFieldName, params.handle))
+	defer lockErrorThread()()
+	err := toError(C.zvec_collection_schema_add_index(s.handle, cFieldName, params.handle))
+	if err == nil {
+		s.generation++
+	}
+	return err
 }
 
 // DropIndex drops an index from a field.
 func (s *CollectionSchema) DropIndex(fieldName string) error {
 	cFieldName := C.CString(fieldName)
 	defer C.free(unsafe.Pointer(cFieldName))
-	return toError(C.zvec_collection_schema_drop_index(s.handle, cFieldName))
+	defer lockErrorThread()()
+	err := toError(C.zvec_collection_schema_drop_index(s.handle, cFieldName))
+	if err == nil {
+		s.generation++
+	}
+	return err
 }
 
 // HasIndex returns whether a field has an index.
@@ -434,6 +536,7 @@ func (s *CollectionSchema) HasIndex(fieldName string) bool {
 
 // SetMaxDocCountPerSegment sets the maximum document count per segment.
 func (s *CollectionSchema) SetMaxDocCountPerSegment(count uint64) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_schema_set_max_doc_count_per_segment(s.handle, C.uint64_t(count)))
 }
 

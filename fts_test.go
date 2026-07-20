@@ -157,6 +157,11 @@ func TestSearchQuerySetFTS(t *testing.T) {
 	if got == nil {
 		t.Fatal("GetFTS returned nil")
 	}
+	defer got.Destroy()
+	if !got.owned {
+		t.Fatal("GetFTS returned a borrowed payload, want an owned copy")
+	}
+	query.Destroy()
 	if got.GetQueryString() != "test query" {
 		t.Errorf("GetFTS().GetQueryString() = %q, want %q", got.GetQueryString(), "test query")
 	}

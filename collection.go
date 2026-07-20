@@ -1,3 +1,5 @@
+//go:build cgo && !purego
+
 package zvec
 
 /*
@@ -6,6 +8,8 @@ package zvec
 */
 import "C"
 import "unsafe"
+
+const maxCollectionBufferSize uint64 = 1<<32 - 1
 
 // CollectionOptions represents options for creating or opening a collection.
 type CollectionOptions struct {
@@ -31,6 +35,7 @@ func (o *CollectionOptions) Destroy() {
 
 // SetEnableMmap sets whether to enable memory mapping.
 func (o *CollectionOptions) SetEnableMmap(enable bool) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_options_set_enable_mmap(o.handle, C.bool(enable)))
 }
 
@@ -41,6 +46,10 @@ func (o *CollectionOptions) GetEnableMmap() bool {
 
 // SetMaxBufferSize sets the maximum buffer size in bytes.
 func (o *CollectionOptions) SetMaxBufferSize(size uint64) error {
+	if size > maxCollectionBufferSize {
+		return invalidArgumentError("max buffer size exceeds the supported uint32 range")
+	}
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_options_set_max_buffer_size(o.handle, C.size_t(size)))
 }
 
@@ -51,6 +60,7 @@ func (o *CollectionOptions) GetMaxBufferSize() uint64 {
 
 // SetReadOnly sets whether the collection is read-only.
 func (o *CollectionOptions) SetReadOnly(readOnly bool) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_options_set_read_only(o.handle, C.bool(readOnly)))
 }
 
@@ -83,13 +93,13 @@ type Collection struct {
 func CreateAndOpen(path string, schema *CollectionSchema, options *CollectionOptions) (*Collection, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
-
 	var cOptions *C.zvec_collection_options_t
 	if options != nil {
 		cOptions = options.handle
 	}
 
 	var cCollection *C.zvec_collection_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_create_and_open(cPath, schema.handle, cOptions, &cCollection))
 	if err != nil {
 		return nil, err
@@ -102,13 +112,13 @@ func CreateAndOpen(path string, schema *CollectionSchema, options *CollectionOpt
 func Open(path string, options *CollectionOptions) (*Collection, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
-
 	var cOptions *C.zvec_collection_options_t
 	if options != nil {
 		cOptions = options.handle
 	}
 
 	var cCollection *C.zvec_collection_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_open(cPath, cOptions, &cCollection))
 	if err != nil {
 		return nil, err
@@ -122,6 +132,7 @@ func (c *Collection) Close() error {
 	if c.handle == nil {
 		return nil
 	}
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_close(c.handle))
 	c.handle = nil
 	return err
@@ -135,6 +146,7 @@ func (c *Collection) Destroy() error {
 	if c.handle == nil {
 		return nil
 	}
+	defer lockErrorThread()()
 	destroyErr := toError(C.zvec_collection_destroy(c.handle))
 	// close frees the handle memory regardless of destroy result
 	C.zvec_collection_close(c.handle)
@@ -144,6 +156,7 @@ func (c *Collection) Destroy() error {
 
 // Flush flushes collection data to disk.
 func (c *Collection) Flush() error {
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_flush(c.handle))
 }
 
@@ -151,6 +164,7 @@ func (c *Collection) Flush() error {
 // The caller is responsible for calling Destroy() on the returned schema.
 func (c *Collection) GetSchema() (*CollectionSchema, error) {
 	var cSchema *C.zvec_collection_schema_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_get_schema(c.handle, &cSchema))
 	if err != nil {
 		return nil, err
@@ -162,6 +176,7 @@ func (c *Collection) GetSchema() (*CollectionSchema, error) {
 // The caller is responsible for calling Destroy() on the returned options.
 func (c *Collection) GetOptions() (*CollectionOptions, error) {
 	var cOptions *C.zvec_collection_options_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_get_options(c.handle, &cOptions))
 	if err != nil {
 		return nil, err
@@ -172,6 +187,7 @@ func (c *Collection) GetOptions() (*CollectionOptions, error) {
 // GetStats returns collection statistics.
 func (c *Collection) GetStats() (*CollectionStats, error) {
 	var cStats *C.zvec_collection_stats_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_get_stats(c.handle, &cStats))
 	if err != nil {
 		return nil, err
@@ -199,6 +215,7 @@ func (c *Collection) GetStats() (*CollectionStats, error) {
 
 // Optimize optimizes the collection (rebuild indexes, merge segments, etc.).
 func (c *Collection) Optimize() error {
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_optimize(c.handle))
 }
 
@@ -206,6 +223,7 @@ func (c *Collection) Optimize() error {
 func (c *Collection) CreateIndex(fieldName string, params *IndexParams) error {
 	cFieldName := C.CString(fieldName)
 	defer C.free(unsafe.Pointer(cFieldName))
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_create_index(c.handle, cFieldName, params.handle))
 }
 
@@ -213,23 +231,30 @@ func (c *Collection) CreateIndex(fieldName string, params *IndexParams) error {
 func (c *Collection) DropIndex(fieldName string) error {
 	cFieldName := C.CString(fieldName)
 	defer C.free(unsafe.Pointer(cFieldName))
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_drop_index(c.handle, cFieldName))
 }
 
 // AddColumn adds a new column to the collection.
 func (c *Collection) AddColumn(fieldSchema *FieldSchema, defaultExpr string) error {
+	fieldHandle := fieldSchema.validHandle()
+	if fieldHandle == nil {
+		return invalidArgumentError("field schema is no longer valid")
+	}
 	var cExpr *C.char
 	if defaultExpr != "" {
 		cExpr = C.CString(defaultExpr)
 		defer C.free(unsafe.Pointer(cExpr))
 	}
-	return toError(C.zvec_collection_add_column(c.handle, fieldSchema.handle, cExpr))
+	defer lockErrorThread()()
+	return toError(C.zvec_collection_add_column(c.handle, fieldHandle, cExpr))
 }
 
 // DropColumn drops a column from the collection.
 func (c *Collection) DropColumn(columnName string) error {
 	cColumnName := C.CString(columnName)
 	defer C.free(unsafe.Pointer(cColumnName))
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_drop_column(c.handle, cColumnName))
 }
 
@@ -239,7 +264,6 @@ func (c *Collection) DropColumn(columnName string) error {
 func (c *Collection) AlterColumn(columnName, newName string, newSchema *FieldSchema) error {
 	cColumnName := C.CString(columnName)
 	defer C.free(unsafe.Pointer(cColumnName))
-
 	var cNewName *C.char
 	if newName != "" {
 		cNewName = C.CString(newName)
@@ -248,8 +272,12 @@ func (c *Collection) AlterColumn(columnName, newName string, newSchema *FieldSch
 
 	var cNewSchema *C.zvec_field_schema_t
 	if newSchema != nil {
-		cNewSchema = newSchema.handle
+		cNewSchema = newSchema.validHandle()
+		if cNewSchema == nil {
+			return invalidArgumentError("new field schema is no longer valid")
+		}
 	}
+	defer lockErrorThread()()
 
 	return toError(C.zvec_collection_alter_column(c.handle, cColumnName, cNewName, cNewSchema))
 }
@@ -264,6 +292,7 @@ func (c *Collection) Insert(docs []*Doc) (*WriteResult, error) {
 		cDocs[i] = doc.handle
 	}
 	var successCount, errorCount C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_insert(
 		c.handle,
 		(**C.zvec_doc_t)(unsafe.Pointer(&cDocs[0])),
@@ -290,6 +319,7 @@ func (c *Collection) Update(docs []*Doc) (*WriteResult, error) {
 		cDocs[i] = doc.handle
 	}
 	var successCount, errorCount C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_update(
 		c.handle,
 		(**C.zvec_doc_t)(unsafe.Pointer(&cDocs[0])),
@@ -316,6 +346,7 @@ func (c *Collection) Upsert(docs []*Doc) (*WriteResult, error) {
 		cDocs[i] = doc.handle
 	}
 	var successCount, errorCount C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_upsert(
 		c.handle,
 		(**C.zvec_doc_t)(unsafe.Pointer(&cDocs[0])),
@@ -348,6 +379,7 @@ func (c *Collection) Delete(pks []string) (*WriteResult, error) {
 	}()
 
 	var successCount, errorCount C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_delete(
 		c.handle,
 		(**C.char)(unsafe.Pointer(&cPKs[0])),
@@ -368,6 +400,7 @@ func (c *Collection) Delete(pks []string) (*WriteResult, error) {
 func (c *Collection) DeleteByFilter(filter string) error {
 	cFilter := C.CString(filter)
 	defer C.free(unsafe.Pointer(cFilter))
+	defer lockErrorThread()()
 	return toError(C.zvec_collection_delete_by_filter(c.handle, cFilter))
 }
 
@@ -377,6 +410,7 @@ func (c *Collection) DeleteByFilter(filter string) error {
 func (c *Collection) Query(query *SearchQuery) ([]*Doc, error) {
 	var cResults **C.zvec_doc_t
 	var resultCount C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_query(c.handle, query.handle, &cResults, &resultCount))
 	if err != nil {
 		return nil, err
@@ -402,6 +436,7 @@ func (c *Collection) Query(query *SearchQuery) ([]*Doc, error) {
 func (c *Collection) MultiQuery(query *MultiQuery) ([]*Doc, error) {
 	var cResults **C.zvec_doc_t
 	var resultCount C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_multi_query(c.handle, query.handle, &cResults, &resultCount))
 	if err != nil {
 		return nil, err
@@ -467,6 +502,7 @@ func (c *Collection) Fetch(primaryKeys []string, opts *FetchOptions) ([]*Doc, er
 
 	var cDocs **C.zvec_doc_t
 	var foundCount C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_collection_fetch(
 		c.handle,
 		(**C.char)(unsafe.Pointer(&cPKs[0])),

@@ -72,6 +72,9 @@ func TestCollectionOptions(t *testing.T) {
 	if got := options.GetMaxBufferSize(); got != testSize {
 		t.Errorf("GetMaxBufferSize() = %d, want %d", got, testSize)
 	}
+	if err := options.SetMaxBufferSize(maxCollectionBufferSize + 1); !IsInvalidArgument(err) {
+		t.Errorf("SetMaxBufferSize() overflow error = %v, want InvalidArgument", err)
+	}
 
 	// Test SetReadOnly/GetReadOnly
 	testReadOnly := true

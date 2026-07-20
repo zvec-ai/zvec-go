@@ -1,3 +1,5 @@
+//go:build cgo && !purego
+
 // Package zvec provides Go bindings for the zvec vector database library.
 //
 // Zvec is an open-source, in-process vector database — lightweight, lightning-fast,
@@ -53,12 +55,14 @@ func Initialize(config *ConfigData) error {
 	if config != nil {
 		cConfig = config.handle
 	}
+	defer lockErrorThread()()
 	return toError(C.zvec_initialize(cConfig))
 }
 
 // Shutdown cleans up zvec library resources.
 // Should be called when the library is no longer needed.
 func Shutdown() error {
+	defer lockErrorThread()()
 	return toError(C.zvec_shutdown())
 }
 
@@ -121,6 +125,7 @@ func (c *ConfigData) Destroy() {
 
 // SetMemoryLimit sets the memory limit in bytes.
 func (c *ConfigData) SetMemoryLimit(bytes uint64) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_config_data_set_memory_limit(c.handle, C.uint64_t(bytes)))
 }
 
@@ -131,6 +136,7 @@ func (c *ConfigData) GetMemoryLimit() uint64 {
 
 // SetQueryThreadCount sets the number of query threads.
 func (c *ConfigData) SetQueryThreadCount(count uint32) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_config_data_set_query_thread_count(c.handle, C.uint32_t(count)))
 }
 
@@ -141,6 +147,7 @@ func (c *ConfigData) GetQueryThreadCount() uint32 {
 
 // SetOptimizeThreadCount sets the number of optimize threads.
 func (c *ConfigData) SetOptimizeThreadCount(count uint32) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_config_data_set_optimize_thread_count(c.handle, C.uint32_t(count)))
 }
 
@@ -151,6 +158,7 @@ func (c *ConfigData) GetOptimizeThreadCount() uint32 {
 
 // SetFTSBruteForceByKeysRatio sets the FTS brute force by keys ratio.
 func (c *ConfigData) SetFTSBruteForceByKeysRatio(ratio float32) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_config_data_set_fts_brute_force_by_keys_ratio(c.handle, C.float(ratio)))
 }
 
@@ -166,6 +174,7 @@ func (c *ConfigData) SetJiebaDictDir(dir string) error {
 		cDir = C.CString(dir)
 		defer C.free(unsafe.Pointer(cDir))
 	}
+	defer lockErrorThread()()
 	return toError(C.zvec_config_data_set_jieba_dict_dir(c.handle, cDir))
 }
 
@@ -180,6 +189,7 @@ func (c *ConfigData) SetConsoleLog(level LogLevel) error {
 	if logConfig == nil {
 		return &Error{Code: InternalError, Message: "failed to create console log config"}
 	}
+	defer lockErrorThread()()
 	err := toError(C.zvec_config_data_set_log_config(c.handle, logConfig))
 	if err != nil {
 		C.zvec_config_log_destroy(logConfig)
@@ -193,7 +203,6 @@ func (c *ConfigData) SetFileLog(level LogLevel, dir, basename string, fileSizeMB
 	defer C.free(unsafe.Pointer(cDir))
 	cBasename := C.CString(basename)
 	defer C.free(unsafe.Pointer(cBasename))
-
 	logConfig := C.zvec_config_log_create_file(
 		C.zvec_log_level_t(level),
 		cDir,
@@ -204,6 +213,7 @@ func (c *ConfigData) SetFileLog(level LogLevel, dir, basename string, fileSizeMB
 	if logConfig == nil {
 		return &Error{Code: InternalError, Message: "failed to create file log config"}
 	}
+	defer lockErrorThread()()
 	err := toError(C.zvec_config_data_set_log_config(c.handle, logConfig))
 	if err != nil {
 		C.zvec_config_log_destroy(logConfig)

@@ -487,3 +487,34 @@ func TestCollectionSchemaGetFieldOwnership(t *testing.T) {
 	retrievedField.Destroy()
 	retrievedField.Destroy()
 }
+
+func TestCollectionSchemaBorrowedFieldInvalidatedByMutation(t *testing.T) {
+	schema := NewCollectionSchema("test_collection")
+	if schema == nil {
+		t.Fatal("NewCollectionSchema() returned nil")
+	}
+	defer schema.Destroy()
+
+	field := NewFieldSchema("test_field", DataTypeString, false, 0)
+	if field == nil {
+		t.Fatal("NewFieldSchema() returned nil")
+	}
+	defer field.Destroy()
+	if err := schema.AddField(field); err != nil {
+		t.Fatalf("AddField() failed: %v", err)
+	}
+
+	borrowed := schema.GetField("test_field")
+	if borrowed == nil {
+		t.Fatal("GetField() returned nil")
+	}
+	if err := schema.DropField("test_field"); err != nil {
+		t.Fatalf("DropField() failed: %v", err)
+	}
+	if got := borrowed.GetName(); got != "" {
+		t.Fatalf("invalidated field GetName() = %q, want empty string", got)
+	}
+	if err := borrowed.SetName("renamed"); !IsInvalidArgument(err) {
+		t.Fatalf("invalidated field SetName() error = %v, want InvalidArgument", err)
+	}
+}

@@ -1,3 +1,5 @@
+//go:build cgo && !purego
+
 // Download pre-built C libraries for the current platform:
 //
 //go:generate go run ./cmd/download-libs
@@ -68,6 +70,7 @@ func (d *Doc) AddStringField(name, value string) error {
 	defer C.free(unsafe.Pointer(cName))
 	cValue := C.CString(value)
 	defer C.free(unsafe.Pointer(cValue))
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_STRING,
 		unsafe.Pointer(cValue), C.size_t(len(value)),
@@ -79,6 +82,7 @@ func (d *Doc) AddBoolField(name string, value bool) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var cValue C.bool = C.bool(value)
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_BOOL,
 		unsafe.Pointer(&cValue), C.size_t(unsafe.Sizeof(cValue)),
@@ -90,6 +94,7 @@ func (d *Doc) AddInt32Field(name string, value int32) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	cValue := C.int32_t(value)
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_INT32,
 		unsafe.Pointer(&cValue), C.size_t(unsafe.Sizeof(cValue)),
@@ -101,6 +106,7 @@ func (d *Doc) AddInt64Field(name string, value int64) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	cValue := C.int64_t(value)
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_INT64,
 		unsafe.Pointer(&cValue), C.size_t(unsafe.Sizeof(cValue)),
@@ -112,6 +118,7 @@ func (d *Doc) AddUint32Field(name string, value uint32) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	cValue := C.uint32_t(value)
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_UINT32,
 		unsafe.Pointer(&cValue), C.size_t(unsafe.Sizeof(cValue)),
@@ -123,6 +130,7 @@ func (d *Doc) AddUint64Field(name string, value uint64) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	cValue := C.uint64_t(value)
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_UINT64,
 		unsafe.Pointer(&cValue), C.size_t(unsafe.Sizeof(cValue)),
@@ -134,6 +142,7 @@ func (d *Doc) AddFloatField(name string, value float32) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	cValue := C.float(value)
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_FLOAT,
 		unsafe.Pointer(&cValue), C.size_t(unsafe.Sizeof(cValue)),
@@ -145,6 +154,7 @@ func (d *Doc) AddDoubleField(name string, value float64) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	cValue := C.double(value)
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_DOUBLE,
 		unsafe.Pointer(&cValue), C.size_t(unsafe.Sizeof(cValue)),
@@ -158,6 +168,7 @@ func (d *Doc) AddVectorFP32Field(name string, vector []float32) error {
 	}
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_VECTOR_FP32,
 		unsafe.Pointer(&vector[0]), C.size_t(len(vector)*4),
@@ -172,6 +183,7 @@ func (d *Doc) AddBinaryField(name string, data []byte) error {
 	}
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_add_field_by_value(
 		d.handle, cName, C.ZVEC_DATA_TYPE_BINARY,
 		unsafe.Pointer(&data[0]), C.size_t(len(data)),
@@ -182,6 +194,7 @@ func (d *Doc) AddBinaryField(name string, data []byte) error {
 func (d *Doc) SetFieldNull(name string) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_set_field_null(d.handle, cName))
 }
 
@@ -189,6 +202,7 @@ func (d *Doc) SetFieldNull(name string) error {
 func (d *Doc) RemoveField(name string) error {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
+	defer lockErrorThread()()
 	return toError(C.zvec_doc_remove_field(d.handle, cName))
 }
 
@@ -233,6 +247,7 @@ func (d *Doc) GetStringField(name string) (string, error) {
 	defer C.free(unsafe.Pointer(cName))
 	var cValue unsafe.Pointer
 	var valueSize C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_pointer(
 		d.handle, cName, C.ZVEC_DATA_TYPE_STRING,
 		(*unsafe.Pointer)(unsafe.Pointer(&cValue)), &valueSize,
@@ -248,6 +263,7 @@ func (d *Doc) GetBoolField(name string) (bool, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var value C.bool
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_basic(
 		d.handle, cName, C.ZVEC_DATA_TYPE_BOOL,
 		unsafe.Pointer(&value), C.size_t(unsafe.Sizeof(value)),
@@ -263,6 +279,7 @@ func (d *Doc) GetInt32Field(name string) (int32, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var value C.int32_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_basic(
 		d.handle, cName, C.ZVEC_DATA_TYPE_INT32,
 		unsafe.Pointer(&value), C.size_t(unsafe.Sizeof(value)),
@@ -278,6 +295,7 @@ func (d *Doc) GetInt64Field(name string) (int64, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var value C.int64_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_basic(
 		d.handle, cName, C.ZVEC_DATA_TYPE_INT64,
 		unsafe.Pointer(&value), C.size_t(unsafe.Sizeof(value)),
@@ -293,6 +311,7 @@ func (d *Doc) GetUint32Field(name string) (uint32, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var value C.uint32_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_basic(
 		d.handle, cName, C.ZVEC_DATA_TYPE_UINT32,
 		unsafe.Pointer(&value), C.size_t(unsafe.Sizeof(value)),
@@ -308,6 +327,7 @@ func (d *Doc) GetUint64Field(name string) (uint64, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var value C.uint64_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_basic(
 		d.handle, cName, C.ZVEC_DATA_TYPE_UINT64,
 		unsafe.Pointer(&value), C.size_t(unsafe.Sizeof(value)),
@@ -323,6 +343,7 @@ func (d *Doc) GetFloatField(name string) (float32, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var value C.float
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_basic(
 		d.handle, cName, C.ZVEC_DATA_TYPE_FLOAT,
 		unsafe.Pointer(&value), C.size_t(unsafe.Sizeof(value)),
@@ -338,6 +359,7 @@ func (d *Doc) GetDoubleField(name string) (float64, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	var value C.double
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_basic(
 		d.handle, cName, C.ZVEC_DATA_TYPE_DOUBLE,
 		unsafe.Pointer(&value), C.size_t(unsafe.Sizeof(value)),
@@ -354,6 +376,7 @@ func (d *Doc) GetVectorFP32Field(name string) ([]float32, error) {
 	defer C.free(unsafe.Pointer(cName))
 	var cValue unsafe.Pointer
 	var valueSize C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_value_pointer(
 		d.handle, cName, C.ZVEC_DATA_TYPE_VECTOR_FP32,
 		(*unsafe.Pointer)(unsafe.Pointer(&cValue)), &valueSize,
@@ -393,6 +416,7 @@ func (d *Doc) IsFieldNull(name string) bool {
 func (d *Doc) GetFieldNames() ([]string, error) {
 	var cNames **C.char
 	var count C.size_t
+	defer lockErrorThread()()
 	err := toError(C.zvec_doc_get_field_names(d.handle, &cNames, &count))
 	if err != nil {
 		return nil, err
