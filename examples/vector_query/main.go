@@ -294,7 +294,7 @@ func main() {
 	groupByQuery.SetFieldName("embedding")
 	groupByQuery.SetGroupByFieldName("category")
 	groupByQuery.SetGroupCount(2)
-	groupByQuery.SetGroupTopK(2)
+	groupByQuery.SetTopkPerGroup(2)
 	groupByQuery.SetQueryVector(queryVector)
 	groupByQuery.SetFilter("")
 	groupByQuery.SetIncludeVector(false)

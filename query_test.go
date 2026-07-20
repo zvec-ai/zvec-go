@@ -366,16 +366,16 @@ func TestGroupBySearchQuerySetGroupCount(t *testing.T) {
 	}
 }
 
-func TestGroupBySearchQuerySetGroupTopK(t *testing.T) {
+func TestGroupBySearchQuerySetTopkPerGroup(t *testing.T) {
 	query := NewGroupBySearchQuery()
 	if query == nil {
 		t.Fatal("NewGroupBySearchQuery returned nil")
 	}
 	defer query.Destroy()
 
-	err := query.SetGroupTopK(5)
+	err := query.SetTopkPerGroup(5)
 	if err != nil {
-		t.Errorf("SetGroupTopK failed: %v", err)
+		t.Errorf("SetTopkPerGroup failed: %v", err)
 	}
 }
 

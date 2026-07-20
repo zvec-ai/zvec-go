@@ -321,8 +321,8 @@ func TestPuregoQueryBuilderBindings(t *testing.T) {
 	if err := groupBy.SetGroupCount(2); err != nil {
 		t.Fatalf("GroupBy.SetGroupCount() failed: %v", err)
 	}
-	if err := groupBy.SetGroupTopK(1); err != nil {
-		t.Fatalf("GroupBy.SetGroupTopK() failed: %v", err)
+	if err := groupBy.SetTopkPerGroup(1); err != nil {
+		t.Fatalf("GroupBy.SetTopkPerGroup() failed: %v", err)
 	}
 	if err := groupBy.SetQueryVector([]float32{0.1, 0.2, 0.3, 0.4}); err != nil {
 		t.Fatalf("GroupBy.SetQueryVector() failed: %v", err)
