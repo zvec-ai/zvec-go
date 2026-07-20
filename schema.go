@@ -169,6 +169,7 @@ func (p *IndexParams) GetHNSWEfConstruction() int {
 
 // SetDiskANNParams sets DiskANN specific parameters.
 func (p *IndexParams) SetDiskANNParams(maxDegree, listSize, pqChunkNum int) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_index_params_set_diskann_params(p.handle, C.int(maxDegree), C.int(listSize), C.int(pqChunkNum)))
 }
 

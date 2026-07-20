@@ -74,6 +74,10 @@ type zvecPuregoAPI struct {
 	indexParamsGetHNSWM              func(unsafe.Pointer) int32
 	indexParamsGetHNSWEfConstruction func(unsafe.Pointer) int32
 	indexParamsSetIVFParams          func(unsafe.Pointer, int32, int32, bool) int32
+	indexParamsSetDiskANNParams      func(unsafe.Pointer, int32, int32, int32) int32
+	indexParamsGetDiskANNMaxDegree   func(unsafe.Pointer) int32
+	indexParamsGetDiskANNListSize    func(unsafe.Pointer) int32
+	indexParamsGetDiskANNPQChunkNum  func(unsafe.Pointer) int32
 	indexParamsSetInvertParams       func(unsafe.Pointer, bool, bool) int32
 	indexParamsSetFTSParams          func(unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer) int32
 	indexParamsGetFTSParams          func(unsafe.Pointer, *unsafe.Pointer, *unsafe.Pointer, *unsafe.Pointer) int32
@@ -174,19 +178,29 @@ type zvecPuregoAPI struct {
 	freeStrArray            func(unsafe.Pointer, uintptr)
 	docsFree                func(unsafe.Pointer, uintptr)
 
-	hnswQueryParamsCreate   func(int32, float32, bool, bool) unsafe.Pointer
-	hnswQueryParamsDestroy  func(unsafe.Pointer)
-	hnswQueryParamsSetEf    func(unsafe.Pointer, int32) int32
-	hnswQueryParamsGetEf    func(unsafe.Pointer) int32
-	ivfQueryParamsCreate    func(int32, bool, float32) unsafe.Pointer
-	ivfQueryParamsDestroy   func(unsafe.Pointer)
-	ivfQueryParamsSetNprobe func(unsafe.Pointer, int32) int32
-	flatQueryParamsCreate   func(bool, float32) unsafe.Pointer
-	flatQueryParamsDestroy  func(unsafe.Pointer)
-	ftsQueryParamsCreate    func(unsafe.Pointer) unsafe.Pointer
-	ftsQueryParamsDestroy   func(unsafe.Pointer)
-	ftsQueryParamsSetOp     func(unsafe.Pointer, string) int32
-	ftsQueryParamsGetOp     func(unsafe.Pointer) string
+	hnswQueryParamsCreate               func(int32, float32, bool, bool) unsafe.Pointer
+	hnswQueryParamsDestroy              func(unsafe.Pointer)
+	hnswQueryParamsSetEf                func(unsafe.Pointer, int32) int32
+	hnswQueryParamsGetEf                func(unsafe.Pointer) int32
+	ivfQueryParamsCreate                func(int32, bool, float32) unsafe.Pointer
+	ivfQueryParamsDestroy               func(unsafe.Pointer)
+	ivfQueryParamsSetNprobe             func(unsafe.Pointer, int32) int32
+	flatQueryParamsCreate               func(bool, float32) unsafe.Pointer
+	flatQueryParamsDestroy              func(unsafe.Pointer)
+	diskannQueryParamsCreate            func(int32) unsafe.Pointer
+	diskannQueryParamsDestroy           func(unsafe.Pointer)
+	diskannQueryParamsSetListSize       func(unsafe.Pointer, int32) int32
+	diskannQueryParamsGetListSize       func(unsafe.Pointer) int32
+	diskannQueryParamsSetRadius         func(unsafe.Pointer, float32) int32
+	diskannQueryParamsGetRadius         func(unsafe.Pointer) float32
+	diskannQueryParamsSetIsLinear       func(unsafe.Pointer, bool) int32
+	diskannQueryParamsGetIsLinear       func(unsafe.Pointer) bool
+	diskannQueryParamsSetIsUsingRefiner func(unsafe.Pointer, bool) int32
+	diskannQueryParamsGetIsUsingRefiner func(unsafe.Pointer) bool
+	ftsQueryParamsCreate                func(unsafe.Pointer) unsafe.Pointer
+	ftsQueryParamsDestroy               func(unsafe.Pointer)
+	ftsQueryParamsSetOp                 func(unsafe.Pointer, string) int32
+	ftsQueryParamsGetOp                 func(unsafe.Pointer) string
 
 	vectorQueryCreate           func() unsafe.Pointer
 	vectorQueryDestroy          func(unsafe.Pointer)
@@ -205,6 +219,7 @@ type zvecPuregoAPI struct {
 	vectorQuerySetHNSWParams    func(unsafe.Pointer, unsafe.Pointer) int32
 	vectorQuerySetIVFParams     func(unsafe.Pointer, unsafe.Pointer) int32
 	vectorQuerySetFlatParams    func(unsafe.Pointer, unsafe.Pointer) int32
+	vectorQuerySetDiskANNParams func(unsafe.Pointer, unsafe.Pointer) int32
 	vectorQuerySetFTSParams     func(unsafe.Pointer, unsafe.Pointer) int32
 	ftsCreate                   func() unsafe.Pointer
 	ftsDestroy                  func(unsafe.Pointer)
@@ -220,7 +235,7 @@ type zvecPuregoAPI struct {
 	groupByQuerySetFieldName        func(unsafe.Pointer, string) int32
 	groupByQuerySetGroupByFieldName func(unsafe.Pointer, string) int32
 	groupByQuerySetGroupCount       func(unsafe.Pointer, uint32) int32
-	groupByQuerySetGroupTopK        func(unsafe.Pointer, uint32) int32
+	groupByQuerySetTopkPerGroup     func(unsafe.Pointer, uint32) int32
 	groupByQuerySetQueryVector      func(unsafe.Pointer, unsafe.Pointer, uintptr) int32
 	groupByQuerySetFilter           func(unsafe.Pointer, string) int32
 	groupByQuerySetIncludeVector    func(unsafe.Pointer, bool) int32
@@ -228,6 +243,7 @@ type zvecPuregoAPI struct {
 	groupByQuerySetHNSWParams       func(unsafe.Pointer, unsafe.Pointer) int32
 	groupByQuerySetIVFParams        func(unsafe.Pointer, unsafe.Pointer) int32
 	groupByQuerySetFlatParams       func(unsafe.Pointer, unsafe.Pointer) int32
+	groupByQuerySetDiskANNParams    func(unsafe.Pointer, unsafe.Pointer) int32
 
 	multiQueryCreate            func() unsafe.Pointer
 	multiQueryDestroy           func(unsafe.Pointer)
@@ -254,6 +270,7 @@ type zvecPuregoAPI struct {
 	subQuerySetHNSWParams    func(unsafe.Pointer, unsafe.Pointer) int32
 	subQuerySetIVFParams     func(unsafe.Pointer, unsafe.Pointer) int32
 	subQuerySetFlatParams    func(unsafe.Pointer, unsafe.Pointer) int32
+	subQuerySetDiskANNParams func(unsafe.Pointer, unsafe.Pointer) int32
 	subQuerySetFTSParams     func(unsafe.Pointer, unsafe.Pointer) int32
 	subQuerySetFTS           func(unsafe.Pointer, unsafe.Pointer) int32
 }
@@ -375,6 +392,10 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.indexParamsGetHNSWM, "zvec_index_params_get_hnsw_m")
 	register(&puregoFns.indexParamsGetHNSWEfConstruction, "zvec_index_params_get_hnsw_ef_construction")
 	register(&puregoFns.indexParamsSetIVFParams, "zvec_index_params_set_ivf_params")
+	register(&puregoFns.indexParamsSetDiskANNParams, "zvec_index_params_set_diskann_params")
+	register(&puregoFns.indexParamsGetDiskANNMaxDegree, "zvec_index_params_get_diskann_max_degree")
+	register(&puregoFns.indexParamsGetDiskANNListSize, "zvec_index_params_get_diskann_list_size")
+	register(&puregoFns.indexParamsGetDiskANNPQChunkNum, "zvec_index_params_get_diskann_pq_chunk_num")
 	register(&puregoFns.indexParamsSetInvertParams, "zvec_index_params_set_invert_params")
 	register(&puregoFns.indexParamsSetFTSParams, "zvec_index_params_set_fts_params")
 	register(&puregoFns.indexParamsGetFTSParams, "zvec_index_params_get_fts_params")
@@ -484,6 +505,16 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.ivfQueryParamsSetNprobe, "zvec_query_params_ivf_set_nprobe")
 	register(&puregoFns.flatQueryParamsCreate, "zvec_query_params_flat_create")
 	register(&puregoFns.flatQueryParamsDestroy, "zvec_query_params_flat_destroy")
+	register(&puregoFns.diskannQueryParamsCreate, "zvec_query_params_diskann_create")
+	register(&puregoFns.diskannQueryParamsDestroy, "zvec_query_params_diskann_destroy")
+	register(&puregoFns.diskannQueryParamsSetListSize, "zvec_query_params_diskann_set_list_size")
+	register(&puregoFns.diskannQueryParamsGetListSize, "zvec_query_params_diskann_get_list_size")
+	register(&puregoFns.diskannQueryParamsSetRadius, "zvec_query_params_diskann_set_radius")
+	register(&puregoFns.diskannQueryParamsGetRadius, "zvec_query_params_diskann_get_radius")
+	register(&puregoFns.diskannQueryParamsSetIsLinear, "zvec_query_params_diskann_set_is_linear")
+	register(&puregoFns.diskannQueryParamsGetIsLinear, "zvec_query_params_diskann_get_is_linear")
+	register(&puregoFns.diskannQueryParamsSetIsUsingRefiner, "zvec_query_params_diskann_set_is_using_refiner")
+	register(&puregoFns.diskannQueryParamsGetIsUsingRefiner, "zvec_query_params_diskann_get_is_using_refiner")
 	register(&puregoFns.ftsQueryParamsCreate, "zvec_query_params_fts_create")
 	register(&puregoFns.ftsQueryParamsDestroy, "zvec_query_params_fts_destroy")
 	register(&puregoFns.ftsQueryParamsSetOp, "zvec_query_params_fts_set_default_operator")
@@ -506,6 +537,7 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.vectorQuerySetHNSWParams, "zvec_vector_query_set_hnsw_params")
 	register(&puregoFns.vectorQuerySetIVFParams, "zvec_vector_query_set_ivf_params")
 	register(&puregoFns.vectorQuerySetFlatParams, "zvec_vector_query_set_flat_params")
+	register(&puregoFns.vectorQuerySetDiskANNParams, "zvec_vector_query_set_diskann_params")
 	register(&puregoFns.vectorQuerySetFTSParams, "zvec_vector_query_set_fts_params")
 	register(&puregoFns.ftsCreate, "zvec_fts_create")
 	register(&puregoFns.ftsDestroy, "zvec_fts_destroy")
@@ -521,7 +553,7 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.groupByQuerySetFieldName, "zvec_group_by_vector_query_set_field_name")
 	register(&puregoFns.groupByQuerySetGroupByFieldName, "zvec_group_by_vector_query_set_group_by_field_name")
 	register(&puregoFns.groupByQuerySetGroupCount, "zvec_group_by_vector_query_set_group_count")
-	register(&puregoFns.groupByQuerySetGroupTopK, "zvec_group_by_vector_query_set_group_topk")
+	register(&puregoFns.groupByQuerySetTopkPerGroup, "zvec_group_by_vector_query_set_topk_per_group")
 	register(&puregoFns.groupByQuerySetQueryVector, "zvec_group_by_vector_query_set_query_vector")
 	register(&puregoFns.groupByQuerySetFilter, "zvec_group_by_vector_query_set_filter")
 	register(&puregoFns.groupByQuerySetIncludeVector, "zvec_group_by_vector_query_set_include_vector")
@@ -529,6 +561,7 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.groupByQuerySetHNSWParams, "zvec_group_by_vector_query_set_hnsw_params")
 	register(&puregoFns.groupByQuerySetIVFParams, "zvec_group_by_vector_query_set_ivf_params")
 	register(&puregoFns.groupByQuerySetFlatParams, "zvec_group_by_vector_query_set_flat_params")
+	register(&puregoFns.groupByQuerySetDiskANNParams, "zvec_group_by_vector_query_set_diskann_params")
 
 	register(&puregoFns.multiQueryCreate, "zvec_multi_query_create")
 	register(&puregoFns.multiQueryDestroy, "zvec_multi_query_destroy")
@@ -555,6 +588,7 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.subQuerySetHNSWParams, "zvec_sub_query_set_hnsw_params")
 	register(&puregoFns.subQuerySetIVFParams, "zvec_sub_query_set_ivf_params")
 	register(&puregoFns.subQuerySetFlatParams, "zvec_sub_query_set_flat_params")
+	register(&puregoFns.subQuerySetDiskANNParams, "zvec_sub_query_set_diskann_params")
 	register(&puregoFns.subQuerySetFTSParams, "zvec_sub_query_set_fts_params")
 	register(&puregoFns.subQuerySetFTS, "zvec_sub_query_set_fts")
 

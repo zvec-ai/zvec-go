@@ -193,6 +193,7 @@ const (
 	IndexTypeHNSW      IndexType = 1
 	IndexTypeIVF       IndexType = 2
 	IndexTypeFlat      IndexType = 3
+	IndexTypeDiskANN   IndexType = 5
 	IndexTypeVamana    IndexType = 6
 	IndexTypeInvert    IndexType = 10
 	IndexTypeFTS       IndexType = 11
@@ -208,6 +209,8 @@ func (i IndexType) String() string {
 		return "IVF"
 	case IndexTypeFlat:
 		return "Flat"
+	case IndexTypeDiskANN:
+		return "DiskANN"
 	case IndexTypeVamana:
 		return "Vamana"
 	case IndexTypeInvert:
@@ -676,6 +679,22 @@ func NewFlatIndexParams(metric MetricType) (*IndexParams, error) {
 	return params, nil
 }
 
+func NewDiskANNIndexParams(metric MetricType, maxDegree, listSize, pqChunkNum int) (*IndexParams, error) {
+	params, err := newIndexParams(IndexTypeDiskANN)
+	if err != nil {
+		return nil, err
+	}
+	if err := params.SetMetricType(metric); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	if err := params.SetDiskANNParams(maxDegree, listSize, pqChunkNum); err != nil {
+		params.Destroy()
+		return nil, err
+	}
+	return params, nil
+}
+
 func NewFTSIndexParams(tokenizerName string, filters []string, extraParams string) (*IndexParams, error) {
 	params, err := newIndexParams(IndexTypeFTS)
 	if err != nil {
@@ -766,6 +785,39 @@ func (p *IndexParams) GetHNSWEfConstruction() int {
 		return 0
 	}
 	return int(api.indexParamsGetHNSWEfConstruction(p.handle))
+}
+
+func (p *IndexParams) SetDiskANNParams(maxDegree, listSize, pqChunkNum int) error {
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	return toError(api.indexParamsSetDiskANNParams(p.handle, int32(maxDegree), int32(listSize), int32(pqChunkNum)))
+}
+
+func (p *IndexParams) GetDiskANNMaxDegree() int {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
+		return 0
+	}
+	return int(api.indexParamsGetDiskANNMaxDegree(p.handle))
+}
+
+func (p *IndexParams) GetDiskANNListSize() int {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
+		return 0
+	}
+	return int(api.indexParamsGetDiskANNListSize(p.handle))
+}
+
+func (p *IndexParams) GetDiskANNPQChunkNum() int {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
+		return 0
+	}
+	return int(api.indexParamsGetDiskANNPQChunkNum(p.handle))
 }
 
 func (p *IndexParams) SetIVFParams(nList, nIters int, useSoar bool) error {
@@ -2059,6 +2111,100 @@ func (p *FlatQueryParams) Destroy() {
 	}
 }
 
+// DiskANNQueryParams represents query parameters for DiskANN index.
+type DiskANNQueryParams struct {
+	handle unsafe.Pointer
+}
+
+func NewDiskANNQueryParams(listSize int) *DiskANNQueryParams {
+	api, err := puregoAPI()
+	if err != nil {
+		return nil
+	}
+	handle := api.diskannQueryParamsCreate(int32(listSize))
+	if handle == nil {
+		return nil
+	}
+	return &DiskANNQueryParams{handle: handle}
+}
+
+func (p *DiskANNQueryParams) Destroy() {
+	if p != nil && p.handle != nil {
+		if api, err := puregoAPI(); err == nil {
+			api.diskannQueryParamsDestroy(p.handle)
+		}
+		p.handle = nil
+	}
+}
+
+func (p *DiskANNQueryParams) SetListSize(listSize int) error {
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	return toError(api.diskannQueryParamsSetListSize(p.handle, int32(listSize)))
+}
+
+func (p *DiskANNQueryParams) GetListSize() int {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
+		return 0
+	}
+	return int(api.diskannQueryParamsGetListSize(p.handle))
+}
+
+func (p *DiskANNQueryParams) SetRadius(radius float32) error {
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	return toError(api.diskannQueryParamsSetRadius(p.handle, radius))
+}
+
+func (p *DiskANNQueryParams) GetRadius() float32 {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
+		return 0
+	}
+	return api.diskannQueryParamsGetRadius(p.handle)
+}
+
+func (p *DiskANNQueryParams) SetIsLinear(isLinear bool) error {
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	return toError(api.diskannQueryParamsSetIsLinear(p.handle, isLinear))
+}
+
+func (p *DiskANNQueryParams) GetIsLinear() bool {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
+		return false
+	}
+	return api.diskannQueryParamsGetIsLinear(p.handle)
+}
+
+func (p *DiskANNQueryParams) SetIsUsingRefiner(isUsingRefiner bool) error {
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	return toError(api.diskannQueryParamsSetIsUsingRefiner(p.handle, isUsingRefiner))
+}
+
+func (p *DiskANNQueryParams) GetIsUsingRefiner() bool {
+	api, err := puregoAPI()
+	if err != nil || p == nil || p.handle == nil {
+		return false
+	}
+	return api.diskannQueryParamsGetIsUsingRefiner(p.handle)
+}
+
 type FTSQueryParams struct {
 	handle unsafe.Pointer
 }
@@ -2290,6 +2436,22 @@ func (q *SearchQuery) SetFlatParams(params *FlatQueryParams) error {
 	return err
 }
 
+func (q *SearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("DiskANN query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	err = toError(api.vectorQuerySetDiskANNParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
+}
+
 func (q *SearchQuery) SetFTSParams(params *FTSQueryParams) error {
 	if params == nil || params.handle == nil {
 		return invalidArgumentError("FTS query params is nil")
@@ -2394,13 +2556,13 @@ func (q *GroupBySearchQuery) SetGroupCount(count uint32) error {
 	return toError(api.groupByQuerySetGroupCount(q.handle, count))
 }
 
-func (q *GroupBySearchQuery) SetGroupTopK(topk uint32) error {
+func (q *GroupBySearchQuery) SetTopkPerGroup(topk uint32) error {
 	api, err := puregoAPI()
 	if err != nil {
 		return err
 	}
 	defer lockErrorThread()()
-	return toError(api.groupByQuerySetGroupTopK(q.handle, topk))
+	return toError(api.groupByQuerySetTopkPerGroup(q.handle, topk))
 }
 
 func (q *GroupBySearchQuery) SetQueryVector(data []float32) error {
@@ -2493,6 +2655,22 @@ func (q *GroupBySearchQuery) SetFlatParams(params *FlatQueryParams) error {
 	}
 	defer lockErrorThread()()
 	err = toError(api.groupByQuerySetFlatParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
+}
+
+func (q *GroupBySearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("DiskANN query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	err = toError(api.groupByQuerySetDiskANNParams(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil
 	}
@@ -2769,6 +2947,22 @@ func (q *SubQuery) SetFlatParams(params *FlatQueryParams) error {
 	}
 	defer lockErrorThread()()
 	err = toError(api.subQuerySetFlatParams(q.handle, params.handle))
+	if err == nil {
+		params.handle = nil
+	}
+	return err
+}
+
+func (q *SubQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("DiskANN query params is nil")
+	}
+	api, err := puregoAPI()
+	if err != nil {
+		return err
+	}
+	defer lockErrorThread()()
+	err = toError(api.subQuerySetDiskANNParams(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil
 	}

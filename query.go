@@ -128,6 +128,7 @@ func (p *DiskANNQueryParams) Destroy() {
 
 // SetListSize sets the search frontier size.
 func (p *DiskANNQueryParams) SetListSize(listSize int) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_query_params_diskann_set_list_size(p.handle, C.int(listSize)))
 }
 
@@ -138,6 +139,7 @@ func (p *DiskANNQueryParams) GetListSize() int {
 
 // SetRadius sets the search radius.
 func (p *DiskANNQueryParams) SetRadius(radius float32) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_query_params_diskann_set_radius(p.handle, C.float(radius)))
 }
 
@@ -148,6 +150,7 @@ func (p *DiskANNQueryParams) GetRadius() float32 {
 
 // SetIsLinear sets the linear search mode.
 func (p *DiskANNQueryParams) SetIsLinear(isLinear bool) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_query_params_diskann_set_is_linear(p.handle, C.bool(isLinear)))
 }
 
@@ -158,6 +161,7 @@ func (p *DiskANNQueryParams) GetIsLinear() bool {
 
 // SetIsUsingRefiner sets whether to use refiner.
 func (p *DiskANNQueryParams) SetIsUsingRefiner(isUsingRefiner bool) error {
+	defer lockErrorThread()()
 	return toError(C.zvec_query_params_diskann_set_is_using_refiner(p.handle, C.bool(isUsingRefiner)))
 }
 
@@ -358,6 +362,7 @@ func (q *SearchQuery) SetFlatParams(params *FlatQueryParams) error {
 // SetDiskANNParams sets the DiskANN query parameters.
 // Ownership of params is transferred to the query on success.
 func (q *SearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	defer lockErrorThread()()
 	err := toError(C.zvec_vector_query_set_diskann_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred
@@ -537,6 +542,7 @@ func (q *GroupBySearchQuery) SetFlatParams(params *FlatQueryParams) error {
 // SetDiskANNParams sets the DiskANN query parameters.
 // Ownership of params is transferred to the query on success.
 func (q *GroupBySearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	defer lockErrorThread()()
 	err := toError(C.zvec_group_by_vector_query_set_diskann_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil // ownership transferred

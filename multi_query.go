@@ -257,6 +257,7 @@ func (q *SubQuery) SetFTS(fts *FTS) error {
 // Available since zvec v0.6.0 (c_api: zvec_sub_query_set_diskann_params).
 // Ownership of params is transferred to the sub-query on success.
 func (q *SubQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	defer lockErrorThread()()
 	err := toError(C.zvec_sub_query_set_diskann_params(q.handle, params.handle))
 	if err == nil {
 		params.handle = nil
