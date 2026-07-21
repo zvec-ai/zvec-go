@@ -18,8 +18,8 @@ import (
 const (
 	zvecLibraryPathEnv = "ZVEC_LIBRARY_PATH"
 	puregoABIMajor     = 0
-	puregoABIMinor     = 5
-	puregoMinABIPatch  = 1
+	puregoABIMinor     = 6
+	puregoMinABIPatch  = 0
 )
 
 var (
