@@ -88,10 +88,10 @@ func TestValidatePuregoVersion(t *testing.T) {
 		major, minor, patch int32
 		wantErr             bool
 	}{
-		{name: "minimum", major: 0, minor: 5, patch: 1},
-		{name: "newer patch", major: 0, minor: 5, patch: 9},
-		{name: "older patch", major: 0, minor: 5, patch: 0, wantErr: true},
-		{name: "different pre-v1 minor", major: 0, minor: 6, patch: 0, wantErr: true},
+		{name: "minimum", major: 0, minor: 6, patch: 0},
+		{name: "newer patch", major: 0, minor: 6, patch: 9},
+		{name: "older minor", major: 0, minor: 5, patch: 9, wantErr: true},
+		{name: "different pre-v1 minor", major: 0, minor: 7, patch: 0, wantErr: true},
 		{name: "different major", major: 1, minor: 0, patch: 0, wantErr: true},
 	}
 
