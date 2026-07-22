@@ -362,6 +362,9 @@ func (q *SearchQuery) SetFlatParams(params *FlatQueryParams) error {
 // SetDiskANNParams sets the DiskANN query parameters.
 // Ownership of params is transferred to the query on success.
 func (q *SearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("DiskANN query params is nil")
+	}
 	defer lockErrorThread()()
 	err := toError(C.zvec_vector_query_set_diskann_params(q.handle, params.handle))
 	if err == nil {
@@ -542,6 +545,9 @@ func (q *GroupBySearchQuery) SetFlatParams(params *FlatQueryParams) error {
 // SetDiskANNParams sets the DiskANN query parameters.
 // Ownership of params is transferred to the query on success.
 func (q *GroupBySearchQuery) SetDiskANNParams(params *DiskANNQueryParams) error {
+	if params == nil || params.handle == nil {
+		return invalidArgumentError("DiskANN query params is nil")
+	}
 	defer lockErrorThread()()
 	err := toError(C.zvec_group_by_vector_query_set_diskann_params(q.handle, params.handle))
 	if err == nil {
