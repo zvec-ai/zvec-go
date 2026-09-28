@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -117,6 +118,10 @@ func lockErrorThread() func() {
 	runtime.LockOSThread()
 	return runtime.UnlockOSThread
 }
+
+// ErrClosed is returned when an operation is attempted on a Collection whose
+// Close or Destroy has already completed (or is completing concurrently).
+var ErrClosed = &Error{Code: FailedPrecondition, Message: "collection is closed"}
 
 func invalidArgumentError(message string) error {
 	return &Error{Code: InvalidArgument, Message: message}
@@ -1397,8 +1402,15 @@ type WriteResult struct {
 }
 
 // Collection represents a zvec collection.
+//
+// A Collection is safe for concurrent use of its data-plane operations.
+// Close and Destroy are idempotent and safe to call concurrently with each
+// other; closing does not wait for in-flight operations, so callers must
+// ensure no goroutine is still using the Collection when Close or Destroy
+// runs (mirrors the cgo backend's contract).
 type Collection struct {
 	handle unsafe.Pointer
+	closed atomic.Bool
 }
 
 func CreateAndOpen(path string, schema *CollectionSchema, options *CollectionOptions) (*Collection, error) {
@@ -1438,8 +1450,12 @@ func Open(path string, options *CollectionOptions) (*Collection, error) {
 	return &Collection{handle: cCollection}, nil
 }
 
+// Close is idempotent and safe to call concurrently: an atomic
+// compare-and-swap gate guarantees exactly one caller performs the
+// teardown. Later (or racing loser) calls return nil immediately.
+// Operations invoked after close return ErrClosed.
 func (c *Collection) Close() error {
-	if c == nil || c.handle == nil {
+	if c == nil || !c.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	api, err := puregoAPI()
@@ -1452,8 +1468,10 @@ func (c *Collection) Close() error {
 	return err
 }
 
+// Destroy is idempotent and safe to call concurrently, for the same
+// reason as Close.
 func (c *Collection) Destroy() error {
-	if c == nil || c.handle == nil {
+	if c == nil || !c.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	api, err := puregoAPI()
@@ -1468,6 +1486,9 @@ func (c *Collection) Destroy() error {
 }
 
 func (c *Collection) Flush() error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return err
@@ -1477,6 +1498,9 @@ func (c *Collection) Flush() error {
 }
 
 func (c *Collection) GetSchema() (*CollectionSchema, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return nil, err
@@ -1490,6 +1514,9 @@ func (c *Collection) GetSchema() (*CollectionSchema, error) {
 }
 
 func (c *Collection) GetOptions() (*CollectionOptions, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return nil, err
@@ -1503,6 +1530,9 @@ func (c *Collection) GetOptions() (*CollectionOptions, error) {
 }
 
 func (c *Collection) GetStats() (*CollectionStats, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return nil, err
@@ -1530,6 +1560,9 @@ func (c *Collection) GetStats() (*CollectionStats, error) {
 }
 
 func (c *Collection) Optimize() error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return err
@@ -1539,6 +1572,9 @@ func (c *Collection) Optimize() error {
 }
 
 func (c *Collection) CreateIndex(fieldName string, params *IndexParams) error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	if params == nil || params.handle == nil {
 		return invalidArgumentError("index params is nil")
 	}
@@ -1551,6 +1587,9 @@ func (c *Collection) CreateIndex(fieldName string, params *IndexParams) error {
 }
 
 func (c *Collection) DropIndex(fieldName string) error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return err
@@ -1560,6 +1599,9 @@ func (c *Collection) DropIndex(fieldName string) error {
 }
 
 func (c *Collection) AddColumn(fieldSchema *FieldSchema, defaultExpr string) error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	fieldHandle := fieldSchema.validHandle()
 	if fieldHandle == nil {
 		return invalidArgumentError("field schema is no longer valid")
@@ -1576,6 +1618,9 @@ func (c *Collection) AddColumn(fieldSchema *FieldSchema, defaultExpr string) err
 }
 
 func (c *Collection) DropColumn(columnName string) error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return err
@@ -1585,6 +1630,9 @@ func (c *Collection) DropColumn(columnName string) error {
 }
 
 func (c *Collection) AlterColumn(columnName, newName string, newSchema *FieldSchema) error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return err
@@ -1604,14 +1652,23 @@ func (c *Collection) AlterColumn(columnName, newName string, newSchema *FieldSch
 }
 
 func (c *Collection) Insert(docs []*Doc) (*WriteResult, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	return c.writeDocs(docs, puregoFns.collectionInsert)
 }
 
 func (c *Collection) Update(docs []*Doc) (*WriteResult, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	return c.writeDocs(docs, puregoFns.collectionUpdate)
 }
 
 func (c *Collection) Upsert(docs []*Doc) (*WriteResult, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	return c.writeDocs(docs, puregoFns.collectionUpsert)
 }
 
@@ -1639,6 +1696,9 @@ func (c *Collection) writeDocs(docs []*Doc, fn func(unsafe.Pointer, unsafe.Point
 }
 
 func (c *Collection) Delete(pks []string) (*WriteResult, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	if len(pks) == 0 {
 		return &WriteResult{}, nil
 	}
@@ -1659,6 +1719,9 @@ func (c *Collection) Delete(pks []string) (*WriteResult, error) {
 }
 
 func (c *Collection) DeleteByFilter(filter string) error {
+	if c.closed.Load() {
+		return ErrClosed
+	}
 	api, err := puregoAPI()
 	if err != nil {
 		return err
@@ -1668,6 +1731,9 @@ func (c *Collection) DeleteByFilter(filter string) error {
 }
 
 func (c *Collection) Query(query *SearchQuery) ([]*Doc, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	if query == nil || query.handle == nil {
 		return nil, invalidArgumentError("query is nil")
 	}
@@ -1685,6 +1751,9 @@ func (c *Collection) Query(query *SearchQuery) ([]*Doc, error) {
 }
 
 func (c *Collection) MultiQuery(query *MultiQuery) ([]*Doc, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	if query == nil || query.handle == nil {
 		return nil, invalidArgumentError("multi query is nil")
 	}
@@ -1707,6 +1776,9 @@ type FetchOptions struct {
 }
 
 func (c *Collection) Fetch(primaryKeys []string, opts *FetchOptions) ([]*Doc, error) {
+	if c.closed.Load() {
+		return nil, ErrClosed
+	}
 	if len(primaryKeys) == 0 {
 		return nil, nil
 	}
@@ -1716,7 +1788,7 @@ func (c *Collection) Fetch(primaryKeys []string, opts *FetchOptions) ([]*Doc, er
 	}
 	pkPtrs, pkKeep := cStringArray(primaryKeys)
 	var fieldPtrs []unsafe.Pointer
-	var fieldKeep [][]byte
+	var fieldKeep []byte
 	var cOutputFields unsafe.Pointer
 	if opts != nil && len(opts.OutputFields) > 0 {
 		fieldPtrs, fieldKeep = cStringArray(opts.OutputFields)
@@ -1887,8 +1959,10 @@ func wrapDocResults(cResults unsafe.Pointer, count uintptr) []*Doc {
 	}
 	resultSlice := unsafe.Slice((*unsafe.Pointer)(cResults), int(count))
 	docs := make([]*Doc, int(count))
-	for i := 0; i < int(count); i++ {
-		docs[i] = &Doc{handle: resultSlice[i]}
+	storage := make([]Doc, len(docs))
+	for index := range docs {
+		storage[index] = Doc{handle: resultSlice[index]}
+		docs[index] = &storage[index]
 	}
 	// Match the cgo wrapper: free only the returned pointer array here; callers
 	// still own and must Destroy/FreeDocs the individual document handles.
@@ -1898,6 +1972,10 @@ func wrapDocResults(cResults unsafe.Pointer, count uintptr) []*Doc {
 	return docs
 }
 
+// FreeDocs is a convenience function to destroy multiple documents at once.
+// Each Doc's handle is atomically claimed first, so calling FreeDocs
+// concurrently or repeatedly (or mixing it with per-Doc Destroy) still
+// releases every underlying document exactly once.
 func FreeDocs(docs []*Doc) {
 	for _, doc := range docs {
 		if doc != nil {
@@ -1923,12 +2001,22 @@ func NewDoc() *Doc {
 	return &Doc{handle: handle}
 }
 
+// Destroy releases the document resources.
+// Destroy is safe to call concurrently or repeatedly (including via
+// FreeDocs from multiple goroutines): the handle is atomically claimed, so
+// the underlying document is released exactly once.
 func (d *Doc) Destroy() {
-	if d != nil && d.handle != nil {
+	if d == nil {
+		return
+	}
+	// handle is the first field of Doc, so &d.handle is pointer-aligned and
+	// can be swapped atomically. Swap-and-check claims the handle exactly
+	// once across racing Destroy calls.
+	h := (*unsafe.Pointer)(unsafe.Pointer(&d.handle))
+	if old := atomic.SwapPointer(h, nil); old != nil {
 		if api, err := puregoAPI(); err == nil {
-			api.docDestroy(d.handle)
+			api.docDestroy(old)
 		}
-		d.handle = nil
 	}
 }
 
@@ -2168,6 +2256,47 @@ func (d *Doc) GetVectorFP32Field(name string) ([]float32, error) {
 	out := make([]float32, count)
 	copy(out, values)
 	return out, nil
+}
+
+// GetVectorFP32FieldInto copies a vector into dst, growing it when needed.
+// The returned slice remains valid after the document is destroyed.
+func (d *Doc) GetVectorFP32FieldInto(name string, dst []float32) ([]float32, error) {
+	ptr, size, err := d.getFieldPointer(name, DataTypeVectorFP32)
+	if err != nil {
+		return nil, err
+	}
+	count := int(size) / 4
+	if cap(dst) < count {
+		dst = make([]float32, count)
+	} else {
+		dst = dst[:count]
+	}
+	copy(dst, unsafe.Slice((*float32)(ptr), count))
+	return dst, nil
+}
+
+// GetBinaryField returns the binary value of a field as a fresh byte slice.
+func (d *Doc) GetBinaryField(name string) ([]byte, error) {
+	return d.GetBinaryFieldInto(name, nil)
+}
+
+// GetBinaryFieldInto copies a binary field into dst, growing it when
+// needed, mirroring GetVectorFP32FieldInto. Binary fields were previously
+// write-only in the Go SDK; the value lives in native doc memory, so the
+// Go copy here is mandatory for lifetime safety.
+func (d *Doc) GetBinaryFieldInto(name string, dst []byte) ([]byte, error) {
+	ptr, size, err := d.getFieldPointer(name, DataTypeBinary)
+	if err != nil {
+		return nil, err
+	}
+	count := int(size)
+	if cap(dst) < count {
+		dst = make([]byte, count)
+	} else {
+		dst = dst[:count]
+	}
+	copy(dst, unsafe.Slice((*byte)(ptr), count))
+	return dst, nil
 }
 
 func (d *Doc) getFieldBasic(name string, fieldType DataType, value unsafe.Pointer, size uintptr) error {
@@ -3510,12 +3639,17 @@ func nullTerminatedBytes(value string) []byte {
 	return buf
 }
 
-func cStringArray(values []string) ([]unsafe.Pointer, [][]byte) {
+func cStringArray(values []string) ([]unsafe.Pointer, []byte) {
 	ptrs := make([]unsafe.Pointer, len(values))
-	keep := make([][]byte, len(values))
-	for i, value := range values {
-		keep[i] = nullTerminatedBytes(value)
-		ptrs[i] = unsafe.Pointer(&keep[i][0])
+	totalBytes := len(values)
+	for _, value := range values {
+		totalBytes += len(value)
 	}
-	return ptrs, keep
+	buffer := make([]byte, totalBytes)
+	offset := 0
+	for index, value := range values {
+		ptrs[index] = unsafe.Pointer(&buffer[offset])
+		offset += copy(buffer[offset:], value) + 1
+	}
+	return ptrs, buffer
 }

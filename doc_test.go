@@ -3,6 +3,7 @@
 package zvec
 
 import (
+	"bytes"
 	"math"
 	"testing"
 )
@@ -403,6 +404,24 @@ func TestDocBinaryField(t *testing.T) {
 			fieldName := "binary_field_" + tc.name
 			if err := doc.AddBinaryField(fieldName, tc.data); err != nil {
 				t.Fatalf("AddBinaryField failed: %v", err)
+			}
+			got, err := doc.GetBinaryField(fieldName)
+			if err != nil {
+				t.Fatalf("GetBinaryField failed: %v", err)
+			}
+			if !bytes.Equal(got, tc.data) {
+				t.Fatalf("GetBinaryField() = %v, want %v", got, tc.data)
+			}
+			into := make([]byte, 0, 8)
+			into, err = doc.GetBinaryFieldInto(fieldName, into)
+			if err != nil {
+				t.Fatalf("GetBinaryFieldInto failed: %v", err)
+			}
+			if !bytes.Equal(into, tc.data) {
+				t.Fatalf("GetBinaryFieldInto() = %v, want %v", into, tc.data)
+			}
+			if _, err := doc.GetBinaryField("binary_field_missing"); err == nil {
+				t.Fatal("GetBinaryField() on a missing field should fail")
 			}
 		})
 	}

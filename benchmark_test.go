@@ -26,6 +26,17 @@ func benchmarkCreateSchema(dimension uint32) *CollectionSchema {
 	return schema
 }
 
+// benchmarkFieldNames returns a fixed pool of field names so benchmarks can
+// index into them (i % len) inside the timed loop without paying fmt.Sprintf
+// allocations that would drown out the FFI cost under measurement.
+func benchmarkFieldNames() []string {
+	names := make([]string, 10)
+	for i := range names {
+		names[i] = fmt.Sprintf("field_%d", i)
+	}
+	return names
+}
+
 // Helper function to generate a random vector
 func generateRandomVector(dimension int) []float32 {
 	vec := make([]float32, dimension)
@@ -76,10 +87,14 @@ func BenchmarkDocSetPK(b *testing.B) {
 	doc := NewDoc()
 	defer doc.Destroy()
 
+	pks := make([]string, 1024)
+	for i := range pks {
+		pks[i] = fmt.Sprintf("doc_%d", i)
+	}
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pk := fmt.Sprintf("doc_%d", i)
-		doc.SetPK(pk)
+		doc.SetPK(pks[i%len(pks)])
 	}
 }
 
@@ -88,10 +103,11 @@ func BenchmarkDocAddStringField(b *testing.B) {
 	doc := NewDoc()
 	defer doc.Destroy()
 
+	fieldNames := benchmarkFieldNames()
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		fieldName := fmt.Sprintf("field_%d", i%10)
-		_ = doc.AddStringField(fieldName, "test value")
+		_ = doc.AddStringField(fieldNames[i%len(fieldNames)], "test value")
 	}
 }
 
@@ -103,9 +119,9 @@ func BenchmarkDocAddVectorFP32Field_4D(b *testing.B) {
 	vector := generateRandomVector(4)
 
 	b.ResetTimer()
+	fieldNames := benchmarkFieldNames()
 	for i := 0; i < b.N; i++ {
-		fieldName := fmt.Sprintf("vector_%d", i%10)
-		_ = doc.AddVectorFP32Field(fieldName, vector)
+		_ = doc.AddVectorFP32Field(fieldNames[i%len(fieldNames)], vector)
 	}
 }
 
@@ -117,9 +133,9 @@ func BenchmarkDocAddVectorFP32Field_128D(b *testing.B) {
 	vector := generateRandomVector(128)
 
 	b.ResetTimer()
+	fieldNames := benchmarkFieldNames()
 	for i := 0; i < b.N; i++ {
-		fieldName := fmt.Sprintf("vector_%d", i%10)
-		_ = doc.AddVectorFP32Field(fieldName, vector)
+		_ = doc.AddVectorFP32Field(fieldNames[i%len(fieldNames)], vector)
 	}
 }
 
@@ -131,9 +147,9 @@ func BenchmarkDocAddVectorFP32Field_768D(b *testing.B) {
 	vector := generateRandomVector(768)
 
 	b.ResetTimer()
+	fieldNames := benchmarkFieldNames()
 	for i := 0; i < b.N; i++ {
-		fieldName := fmt.Sprintf("vector_%d", i%10)
-		_ = doc.AddVectorFP32Field(fieldName, vector)
+		_ = doc.AddVectorFP32Field(fieldNames[i%len(fieldNames)], vector)
 	}
 }
 
@@ -148,10 +164,11 @@ func BenchmarkDocGetStringField(b *testing.B) {
 		_ = doc.AddStringField(fieldName, "test value")
 	}
 
+	fieldNames := benchmarkFieldNames()
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		fieldName := fmt.Sprintf("field_%d", i%10)
-		_, _ = doc.GetStringField(fieldName)
+		_, _ = doc.GetStringField(fieldNames[i%len(fieldNames)])
 	}
 }
 
@@ -354,10 +371,11 @@ func BenchmarkCollectionQuery(b *testing.B) {
 	_ = query.SetQueryVector(queryVector)
 
 	for i := 0; i < b.N; i++ {
-		_, err := collection.Query(query)
+		docs, err := collection.Query(query)
 		if err != nil {
 			b.Fatalf("Failed to query collection: %v", err)
 		}
+		FreeDocs(docs)
 	}
 }
 
@@ -400,9 +418,10 @@ func BenchmarkCollectionFetch(b *testing.B) {
 	// Benchmark fetch
 	for i := 0; i < b.N; i++ {
 		pk := fmt.Sprintf("doc_%d", i%100)
-		_, err := collection.Fetch([]string{pk}, nil)
+		docs, err := collection.Fetch([]string{pk}, nil)
 		if err != nil {
 			b.Fatalf("Failed to fetch document: %v", err)
 		}
+		FreeDocs(docs)
 	}
 }

@@ -5,6 +5,20 @@ package zvec
 /*
 #include "zvec/c_api.h"
 #include <stdlib.h>
+
+// zvec_go_status_t bundles an operation's error code with the thread-local
+// last-error message fetched in the SAME native call as the operation (see
+// the zvec_go_*_ex wrappers in doc.go/collection.go). A goroutine may
+// migrate OS threads between two separate cgo calls, and zvec keeps the
+// last error in thread-local storage — so reading the message in a later
+// cgo call can observe another call's (or another thread's) message under
+// concurrent failure load. Returning the pair by value from the wrapper
+// pins the read to the thread that saw the failure and costs the happy
+// path nothing.
+typedef struct zvec_go_status {
+  zvec_error_code_t code;
+  char *err_msg; // malloc'd copy when non-NULL; free with zvec_free (any thread)
+} zvec_go_status_t;
 */
 import "C"
 import (
@@ -46,6 +60,10 @@ type Error struct {
 func (e *Error) Error() string {
 	return fmt.Sprintf("zvec error [%s]: %s", e.Code, e.Message)
 }
+
+// ErrClosed is returned when an operation is attempted on a Collection whose
+// Close or Destroy has already completed (or is completing concurrently).
+var ErrClosed = &Error{Code: FailedPrecondition, Message: "collection is closed"}
 
 // Sentinel errors for common error codes.
 var (
@@ -106,7 +124,9 @@ func toError(code C.zvec_error_code_t) error {
 }
 
 // lockErrorThread keeps a native call and its subsequent thread-local error
-// lookup on the same OS thread.
+// lookup on the same OS thread. It remains for call sites not yet migrated
+// to the zvec_go_*_ex wrappers, which fold the error lookup into the same
+// native call and need no thread pinning.
 func lockErrorThread() func() {
 	runtime.LockOSThread()
 	return runtime.UnlockOSThread
@@ -114,4 +134,32 @@ func lockErrorThread() func() {
 
 func invalidArgumentError(message string) error {
 	return &Error{Code: InvalidArgument, Message: message}
+}
+
+// statusError converts a zvec_go_status_t (error code + last-error message
+// captured in the same cgo transition by the zvec_go_*_ex wrappers) into a
+// Go error and frees the message buffer. Freeing a malloc'd copy is
+// thread-agnostic, so the freeing transition does not need to run on the
+// thread that saw the failure. A nil message falls back to a generic text,
+// mirroring toError.
+func statusError(status C.zvec_go_status_t) error {
+	if status.code == C.ZVEC_OK {
+		return nil
+	}
+
+	defer func() {
+		if status.err_msg != nil {
+			C.zvec_free(unsafe.Pointer(status.err_msg))
+		}
+	}()
+
+	message := "unknown error"
+	if status.err_msg != nil {
+		message = C.GoString(status.err_msg)
+	}
+
+	return &Error{
+		Code:    ErrorCode(status.code),
+		Message: message,
+	}
 }

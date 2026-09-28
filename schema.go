@@ -124,6 +124,16 @@ func NewDiskANNIndexParams(metric MetricType, maxDegree, listSize, pqChunkNum in
 }
 
 // NewFTSIndexParams creates FTS index parameters with the specified tokenizer and filters.
+//
+// extraParams is a JSON object consumed by the tokenizer pipeline, e.g.
+// `{"ngram_min":2,"ngram_max":4}`. It also carries index-level switches:
+//
+//	{"store_positions": false}
+//
+// which skips per-(term, doc) position storage — faster ingestion and a
+// smaller index, in exchange for phrase queries being rejected with an error.
+// Term and BM25 ranking queries are unaffected. Requires zvec >= v0.7.0 with
+// positions support; older native libraries ignore the key.
 func NewFTSIndexParams(tokenizerName string, filters []string, extraParams string) (*IndexParams, error) {
 	params := NewIndexParams(IndexTypeFTS)
 	if params == nil {
