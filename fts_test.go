@@ -3,6 +3,7 @@
 package zvec
 
 import (
+	"path/filepath"
 	"testing"
 )
 
@@ -202,5 +203,139 @@ func TestFTSIndexParamsWithFilters(t *testing.T) {
 	}
 	if extra != `{"key":"value"}` {
 		t.Errorf("extra = %q, want %q", extra, `{"key":"value"}`)
+	}
+}
+
+// queryFTSMatch runs a match query against the "content" field and returns the
+// matching documents.
+func queryFTSMatch(t *testing.T, collection *Collection, term string) []*Doc {
+	t.Helper()
+
+	query := NewSearchQuery()
+	if query == nil {
+		t.Fatal("NewSearchQuery returned nil")
+	}
+	defer query.Destroy()
+	if err := query.SetFieldName("content"); err != nil {
+		t.Fatalf("SetFieldName() failed: %v", err)
+	}
+	if err := query.SetTopK(10); err != nil {
+		t.Fatalf("SetTopK() failed: %v", err)
+	}
+	if err := query.SetOutputFields([]string{"id", "content"}); err != nil {
+		t.Fatalf("SetOutputFields() failed: %v", err)
+	}
+
+	payload := NewFTS()
+	if payload == nil {
+		t.Fatal("NewFTS returned nil")
+	}
+	defer payload.Destroy()
+	if err := payload.SetMatchString(term); err != nil {
+		t.Fatalf("SetMatchString() failed: %v", err)
+	}
+	if err := query.SetFTS(payload); err != nil {
+		t.Fatalf("SetFTS() failed: %v", err)
+	}
+
+	docs, err := collection.Query(query)
+	if err != nil {
+		t.Fatalf("Query(%q) failed: %v", term, err)
+	}
+	return docs
+}
+
+// TestFTSJiebaTokenizerEmbeddedDicts verifies that the `jieba` tokenizer works
+// out of the box. Since zvec v0.8.0 the dictionary files are embedded in the
+// C-API library, so no external dictionary directory is required.
+func TestFTSJiebaTokenizerEmbeddedDicts(t *testing.T) {
+	schema := NewCollectionSchema("fts_jieba_collection")
+	if schema == nil {
+		t.Fatal("NewCollectionSchema returned nil")
+	}
+	defer schema.Destroy()
+
+	idField := NewFieldSchema("id", DataTypeString, false, 0)
+	defer idField.Destroy()
+	idIndex, err := NewInvertIndexParams(true, false)
+	if err != nil {
+		t.Fatalf("NewInvertIndexParams() failed: %v", err)
+	}
+	defer idIndex.Destroy()
+	if err := idField.SetIndexParams(idIndex); err != nil {
+		t.Fatalf("SetIndexParams(id) failed: %v", err)
+	}
+	if err := schema.AddField(idField); err != nil {
+		t.Fatalf("AddField(id) failed: %v", err)
+	}
+
+	contentField := NewFieldSchema("content", DataTypeString, false, 0)
+	defer contentField.Destroy()
+	ftsIndex, err := NewFTSIndexParams("jieba", nil, "")
+	if err != nil {
+		t.Fatalf("NewFTSIndexParams(jieba) failed: %v", err)
+	}
+	defer ftsIndex.Destroy()
+	if err := contentField.SetIndexParams(ftsIndex); err != nil {
+		t.Fatalf("SetIndexParams(content) failed: %v", err)
+	}
+	if err := schema.AddField(contentField); err != nil {
+		t.Fatalf("AddField(content) failed: %v", err)
+	}
+
+	path := filepath.Join(testTempDir(t), "fts_jieba")
+	collection, err := CreateAndOpen(path, schema, nil)
+	if err != nil {
+		t.Fatalf("CreateAndOpen() failed: %v", err)
+	}
+	t.Cleanup(func() { _ = collection.Close() })
+
+	contents := [][2]string{
+		{"doc1", "向量数据库支持全文检索功能"},
+		{"doc2", "全文检索依赖分词器切分中文"},
+		{"doc3", "数据库优化需要索引结构"},
+	}
+	docs := make([]*Doc, 0, len(contents))
+	for _, item := range contents {
+		doc := NewDoc()
+		if doc == nil {
+			t.Fatalf("NewDoc(%s) returned nil", item[0])
+		}
+		docs = append(docs, doc)
+		doc.SetPK(item[0])
+		if err := doc.AddStringField("id", item[0]); err != nil {
+			t.Fatalf("AddStringField(id) failed: %v", err)
+		}
+		if err := doc.AddStringField("content", item[1]); err != nil {
+			t.Fatalf("AddStringField(content) failed: %v", err)
+		}
+	}
+	defer FreeDocs(docs)
+
+	result, err := collection.Insert(docs)
+	if err != nil {
+		t.Fatalf("Insert() failed: %v", err)
+	}
+	if result.SuccessCount != uint64(len(contents)) || result.ErrorCount != 0 {
+		t.Fatalf("Insert() success=%d error=%d, want success=%d error=0",
+			result.SuccessCount, result.ErrorCount, len(contents))
+	}
+	if err := collection.Flush(); err != nil {
+		t.Fatalf("Flush() failed: %v", err)
+	}
+
+	for _, tc := range []struct {
+		term     string
+		wantHits int
+	}{
+		{"检索", 2},
+		{"数据库", 2},
+		{"分词器", 1},
+	} {
+		hits := queryFTSMatch(t, collection, tc.term)
+		if len(hits) != tc.wantHits {
+			t.Errorf("Query(%q) returned %d hits, want %d", tc.term, len(hits), tc.wantHits)
+		}
+		FreeDocs(hits)
 	}
 }

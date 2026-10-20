@@ -245,14 +245,6 @@ jobs:
           cp zvec/src/include/zvec/c_api.h staging/include/zvec/
           echo "✓ Copied c_api.h"
 
-          # Bundle jieba dictionaries (architecture-independent, needed by
-          # the `jieba` FTS tokenizer). Mirrors the upstream SDK layout:
-          # data/jieba_dict/ next to <platform>/ and include/.
-          mkdir -p staging/data/jieba_dict
-          DICT_DIR="$(ls -d zvec/thirdparty/cppjieba/cppjieba-*/dict | head -1)"
-          cp "$DICT_DIR/jieba.dict.utf8" "$DICT_DIR/hmm_model.utf8" staging/data/jieba_dict/
-          echo "✓ Copied jieba dictionaries"
-
           # Show results
           ls -la staging/$PLATFORM/
           du -h staging/$PLATFORM/${{ matrix.lib_name }}
@@ -309,21 +301,6 @@ jobs:
           Copy-Item "zvec/src/include/zvec/c_api.h" "staging/include/zvec/"
           Write-Host "✓ Copied c_api.h"
 
-          # Bundle jieba dictionaries (architecture-independent, needed by
-          # the `jieba` FTS tokenizer). Mirrors the upstream SDK layout:
-          # data/jieba_dict/ next to <platform>/ and include/.
-          New-Item -ItemType Directory -Force -Path "staging/data/jieba_dict" | Out-Null
-          $dictDir = Get-ChildItem -Directory "zvec/thirdparty/cppjieba" |
-            Where-Object { Test-Path "$($_.FullName)/dict/jieba.dict.utf8" } |
-            Select-Object -First 1
-          if (-not $dictDir) {
-            Write-Error "jieba dictionaries not found under zvec/thirdparty/cppjieba/"
-            exit 1
-          }
-          Copy-Item "$($dictDir.FullName)/dict/jieba.dict.utf8" "staging/data/jieba_dict/"
-          Copy-Item "$($dictDir.FullName)/dict/hmm_model.utf8" "staging/data/jieba_dict/"
-          Write-Host "✓ Copied jieba dictionaries"
-
           # Show results
           Get-ChildItem "staging/$platform/"
         shell: pwsh
@@ -337,7 +314,6 @@ jobs:
           mkdir -p lib/$PLATFORM lib/include/zvec
           cp staging/$PLATFORM/* lib/$PLATFORM/
           cp staging/include/zvec/c_api.h lib/include/zvec/
-          cp -R staging/data lib/
 
           # Verify Go build compiles (vendor mode, no source tag)
           # Use "go build ." instead of "./..." to avoid scanning zvec submodule
@@ -353,7 +329,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path "lib/include/zvec"
           Copy-Item "staging/$platform/*" "lib/$platform/"
           Copy-Item "staging/include/zvec/c_api.h" "lib/include/zvec/"
-          Copy-Item -Recurse "staging/data" "lib/data"
 
           # Add DLL to PATH for runtime
           $libPath = "${{ github.workspace }}\lib\$platform"
@@ -468,9 +443,9 @@ jobs:
           | **Linux (musl, Alpine)** | `zvec-libs-linux-musl-arm64.tar.gz` | ARM64 (aarch64) |
           | **Windows** | `zvec-libs-windows-x64.zip` | x86_64 |
 
-          Each archive also ships the jieba dictionaries under
-          `data/jieba_dict/` (needed by the `jieba` FTS tokenizer). The Go
-          SDK locates them automatically at `Initialize()` time.
+          Since zvec v0.8.0 the `jieba` FTS tokenizer ships its dictionaries
+          inside the C-API library, so the archives no longer carry extra
+          data files.
 
           ### Quick Start
 

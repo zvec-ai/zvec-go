@@ -26,6 +26,7 @@ func TestDataTypeConstants(t *testing.T) {
 		{"VectorInt4", DataTypeVectorInt4, 25},
 		{"VectorInt8", DataTypeVectorInt8, 26},
 		{"VectorInt16", DataTypeVectorInt16, 27},
+		{"VectorUint8", DataTypeVectorUint8, 28},
 		{"SparseVectorFP16", DataTypeSparseVectorFP16, 30},
 		{"SparseVectorFP32", DataTypeSparseVectorFP32, 31},
 		{"ArrayBinary", DataTypeArrayBinary, 40},

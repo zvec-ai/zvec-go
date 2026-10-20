@@ -50,17 +50,11 @@ import "unsafe"
 // Initialize initializes the zvec library with optional configuration.
 // Pass nil to use default configuration.
 // Must be called before any other zvec operations.
-//
-// When no process-wide default jieba dict directory has been set, Initialize
-// tries to locate the bundled jieba dictionaries (see FindJiebaDictDir) and
-// registers them via SetDefaultJiebaDictDir, so the `jieba` FTS tokenizer
-// works out of the box. Set ZVEC_DISABLE_AUTO_JIEBA_DICT=1 to opt out.
 func Initialize(config *ConfigData) error {
 	var cConfig *C.zvec_config_data_t
 	if config != nil {
 		cConfig = config.handle
 	}
-	ensureDefaultJiebaDictDir()
 	defer lockErrorThread()()
 	return toError(C.zvec_initialize(cConfig))
 }
@@ -173,22 +167,6 @@ func (c *ConfigData) GetFTSBruteForceByKeysRatio() float32 {
 	return float32(C.zvec_config_data_get_fts_brute_force_by_keys_ratio(c.handle))
 }
 
-// SetJiebaDictDir sets the jieba dictionary directory.
-func (c *ConfigData) SetJiebaDictDir(dir string) error {
-	var cDir *C.char
-	if dir != "" {
-		cDir = C.CString(dir)
-		defer C.free(unsafe.Pointer(cDir))
-	}
-	defer lockErrorThread()()
-	return toError(C.zvec_config_data_set_jieba_dict_dir(c.handle, cDir))
-}
-
-// GetJiebaDictDir returns the jieba dictionary directory.
-func (c *ConfigData) GetJiebaDictDir() string {
-	return C.GoString(C.zvec_config_data_get_jieba_dict_dir(c.handle))
-}
-
 // SetConsoleLog configures console logging with the specified level.
 func (c *ConfigData) SetConsoleLog(level LogLevel) error {
 	logConfig := C.zvec_config_log_create_console(C.zvec_log_level_t(level))
@@ -225,20 +203,4 @@ func (c *ConfigData) SetFileLog(level LogLevel, dir, basename string, fileSizeMB
 		C.zvec_config_log_destroy(logConfig)
 	}
 	return err
-}
-
-// SetDefaultJiebaDictDir sets the process-wide default jieba dictionary directory.
-// Thread-safe. Pass empty string to clear.
-func SetDefaultJiebaDictDir(dir string) {
-	var cDir *C.char
-	if dir != "" {
-		cDir = C.CString(dir)
-		defer C.free(unsafe.Pointer(cDir))
-	}
-	C.zvec_set_default_jieba_dict_dir(cDir)
-}
-
-// GetDefaultJiebaDictDir returns the process-wide default jieba dictionary directory.
-func GetDefaultJiebaDictDir() string {
-	return C.GoString(C.zvec_get_default_jieba_dict_dir())
 }

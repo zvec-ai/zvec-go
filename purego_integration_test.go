@@ -125,21 +125,6 @@ func TestPuregoConfigDataBindings(t *testing.T) {
 		t.Fatalf("GetFTSBruteForceByKeysRatio() = %v, want 0.25", got)
 	}
 
-	dictDir := filepath.Join(t.TempDir(), "jieba")
-	if err := config.SetJiebaDictDir(dictDir); err != nil {
-		t.Fatalf("SetJiebaDictDir() failed: %v", err)
-	}
-	if got := config.GetJiebaDictDir(); got != dictDir {
-		t.Fatalf("GetJiebaDictDir() = %q, want %q", got, dictDir)
-	}
-
-	oldDefault := GetDefaultJiebaDictDir()
-	t.Cleanup(func() { SetDefaultJiebaDictDir(oldDefault) })
-	SetDefaultJiebaDictDir(dictDir)
-	if got := GetDefaultJiebaDictDir(); got != dictDir {
-		t.Fatalf("GetDefaultJiebaDictDir() = %q, want %q", got, dictDir)
-	}
-
 	if err := config.SetConsoleLog(LogLevelInfo); err != nil {
 		t.Fatalf("SetConsoleLog() failed: %v", err)
 	}
