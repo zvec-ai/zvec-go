@@ -35,6 +35,17 @@ jobs:
             artifact_name: zvec-libs-darwin-arm64
             env:
               MACOSX_DEPLOYMENT_TARGET: '13.0'
+          - name: darwin-x64
+            # Intel runner, mirroring upstream _build_macos_x64_sdk.yml.
+            # MACOSX_DEPLOYMENT_TARGET=11.0 matches the upstream osx-amd64 SDK
+            # and keeps the older Intel install base covered.
+            runner: macos-15-intel
+            platform: darwin_amd64
+            lib_name: libzvec_c_api.dylib
+            artifact_name: zvec-libs-darwin-x64
+            osx_arch: x86_64
+            env:
+              MACOSX_DEPLOYMENT_TARGET: '11.0'
           # - name: linux-x64
           #   runner: ubuntu-24.04
           #   platform: linux_amd64
@@ -77,6 +88,17 @@ jobs:
             platform: windows_amd64
             lib_name: zvec_c_api.dll
             artifact_name: zvec-libs-windows-x64
+            msvc_arch: x64
+          - name: windows-arm64
+            # Native Windows ARM64 runner, mirroring upstream _build_prebuilt.yml.
+            runner: windows-11-arm
+            platform: windows_arm64
+            lib_name: zvec_c_api.dll
+            artifact_name: zvec-libs-windows-arm64
+            msvc_arch: arm64
+            # lukka/get-cmake ships no Windows ARM64 binaries, so this job uses
+            # the pip-provided Ninja toolchain instead of the VS generator.
+            win_cmake_args: '-G Ninja'
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -151,13 +173,23 @@ jobs:
       - name: Set up MSVC (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch || 'x64' }}
 
-      - name: Install CMake 3.30 and Ninja (Windows)
-        if: runner.os == 'Windows'
+      - name: Install CMake 3.30 and Ninja (Windows x64)
+        if: runner.os == 'Windows' && matrix.msvc_arch != 'arm64'
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: '3.30.0'
           ninjaVersion: '1.11.1'
+
+      # cmake/ninja publish native win_arm64 wheels, so ARM64 jobs install them
+      # with pip — same approach as upstream _build_prebuilt.yml.
+      - name: Install CMake 3.30 and Ninja (Windows ARM64)
+        if: runner.os == 'Windows' && matrix.msvc_arch == 'arm64'
+        run: |
+          python -m pip install --upgrade pip cmake==3.30.0 ninja==1.11.1
+        shell: pwsh
 
       # --- Build C-API library ---
       - name: Build C-API library (Unix)
@@ -166,6 +198,12 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
         run: |
           NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+          # Pin the macOS target architecture; empty elsewhere so CMake keeps
+          # the host default.
+          OSX_ARCH_ARGS=""
+          if [ -n "${{ matrix.osx_arch }}" ]; then
+            OSX_ARCH_ARGS="-DCMAKE_OSX_ARCHITECTURES=${{ matrix.osx_arch }}"
+          fi
           cd zvec
           mkdir -p build && cd build
           cmake .. \
@@ -173,6 +211,7 @@ jobs:
             -DBUILD_C_BINDINGS=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0} \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            $OSX_ARCH_ARGS \
             -G Ninja
           cmake --build . -j$NPROC --target zvec_c_api
         shell: bash
@@ -226,9 +265,25 @@ jobs:
           cd zvec
           mkdir build -ErrorAction SilentlyContinue
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_C_BINDINGS=ON ${{ matrix.win_cmake_args }}
           cmake --build . --config Release --target zvec_c_api -j $env:NUMBER_OF_PROCESSORS
         shell: pwsh
+
+      # Guard against publishing a library built for the wrong architecture
+      # (e.g. an arm64 slice on an Intel runner) — same check as upstream
+      # _build_macos_x64_sdk.yml.
+      - name: Verify library architecture (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          LIB="zvec/build/lib/${{ matrix.lib_name }}"
+          archs=$(lipo -archs "$LIB")
+          echo "$LIB: $archs"
+          want=$(uname -m)
+          if ! printf '%s\n' "$archs" | tr ' ' '\n' | grep -Fx "$want" > /dev/null; then
+            echo "::error::$LIB is missing the $want slice (got: $archs)"
+            exit 1
+          fi
+        shell: bash
 
       # --- Package libraries ---
       - name: Package libraries (Unix)
@@ -436,12 +491,14 @@ jobs:
 
           | Platform | Archive | Architecture |
           |----------|---------|--------------|
+          | **macOS** | `zvec-libs-darwin-x64.tar.gz` | Intel (x86_64, macOS 11+) |
           | **macOS** | `zvec-libs-darwin-arm64.tar.gz` | Apple Silicon (M1/M2/M3/M4) |
           | **Linux (glibc 2.28+)** | `zvec-libs-linux-x64.tar.gz` | x86_64 |
           | **Linux (glibc 2.28+)** | `zvec-libs-linux-arm64.tar.gz` | ARM64 (aarch64) |
           | **Linux (musl, Alpine)** | `zvec-libs-linux-musl-x64.tar.gz` | x86_64 |
           | **Linux (musl, Alpine)** | `zvec-libs-linux-musl-arm64.tar.gz` | ARM64 (aarch64) |
           | **Windows** | `zvec-libs-windows-x64.zip` | x86_64 |
+          | **Windows** | `zvec-libs-windows-arm64.zip` | ARM64 |
 
           Since zvec v0.8.0 the `jieba` FTS tokenizer ships its dictionaries
           inside the C-API library, so the archives no longer carry extra

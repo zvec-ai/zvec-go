@@ -95,7 +95,7 @@ CGO_ENABLED=1 go build .
 ```
 
 支持平台：**Linux (x64, ARM64；glibc 2.28+ 及 musl/Alpine)**、
-**macOS (ARM64)** 和 **Windows (x64)**。
+**macOS (x64, ARM64)** 和 **Windows (x64, ARM64)**。
 
 在 Linux 上，`download-libs` 会自动检测 musl 系统（如 Alpine）并下载对应的
 musl 版本；也可用 `-libc glibc` 或 `-libc musl` 手动指定。Linux glibc 版本
@@ -442,8 +442,8 @@ go run main.go
 ## 支持平台
 
 - Linux (x86_64, ARM64)
-- macOS (ARM64)
-- Windows (x86_64)
+- macOS (x86_64, ARM64)
+- Windows (x86_64, ARM64)
 
 ## 许可证
 

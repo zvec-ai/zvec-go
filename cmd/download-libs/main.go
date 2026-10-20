@@ -41,10 +41,12 @@ type platformArtifact struct {
 }
 
 var platformMap = map[string]platformArtifact{
+	"darwin/amd64":  {name: "zvec-libs-darwin-x64.tar.gz", isZip: false},
 	"darwin/arm64":  {name: "zvec-libs-darwin-arm64.tar.gz", isZip: false},
 	"linux/amd64":   {name: "zvec-libs-linux-x64.tar.gz", isZip: false},
 	"linux/arm64":   {name: "zvec-libs-linux-arm64.tar.gz", isZip: false},
 	"windows/amd64": {name: "zvec-libs-windows-x64.zip", isZip: true},
+	"windows/arm64": {name: "zvec-libs-windows-arm64.zip", isZip: true},
 }
 
 // muslPlatformMap holds the musl (Alpine) variants for Linux. They extract
@@ -95,7 +97,7 @@ func main() {
 	key := runtime.GOOS + "/" + runtime.GOARCH
 	artifact, ok := platformMap[key]
 	if !ok {
-		fatalf("Unsupported platform: %s\nSupported platforms: darwin/arm64, linux/amd64, linux/arm64, windows/amd64", key)
+		fatalf("Unsupported platform: %s\nSupported platforms: darwin/amd64, darwin/arm64, linux/amd64, linux/arm64, windows/amd64, windows/arm64", key)
 	}
 
 	// On Linux, pick the musl archive when requested or auto-detected.

@@ -33,10 +33,12 @@ This project supports two build modes controlled by Go build tags:
 zvec-go/
 ├── lib/                        # Vendor mode: pre-built libraries (Git LFS)
 │   ├── include/zvec/c_api.h    # C-API header
+│   ├── darwin_amd64/           # macOS Intel (.dylib)
 │   ├── darwin_arm64/           # macOS ARM64 (.dylib)
 │   ├── linux_amd64/            # Linux x64 (.so)
 │   ├── linux_arm64/            # Linux ARM64 (.so)
-│   └── windows_amd64/          # Windows x64 (.dll + .lib)
+│   ├── windows_amd64/          # Windows x64 (.dll + .lib)
+│   └── windows_arm64/          # Windows ARM64 (.dll + .lib)
 ├── zvec/                       # Source mode: git submodule → github.com/alibaba/zvec
 ├── cgo_vendor_*.go             # Vendor mode cgo (default, per platform)
 ├── cgo_source.go               # Source mode cgo — Unix (-tags source)

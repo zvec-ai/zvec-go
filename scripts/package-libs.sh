@@ -170,9 +170,11 @@ case "${1:-}" in
     --all)
         echo "To package libraries for all platforms, run this script on each target:"
         echo ""
+        echo "  macOS x64:    ./scripts/package-libs.sh  (on an Intel Mac)"
         echo "  macOS ARM64:  ./scripts/package-libs.sh"
         echo "  Linux x64:    ./scripts/package-libs.sh  (on linux-x64 machine)"
         echo "  Linux ARM64:  ./scripts/package-libs.sh  (on linux-arm64 machine)"
+        echo "  Windows ARM64: ./scripts/package-libs.sh (on windows-11-arm machine)"
         echo ""
         echo "Or use the CI workflow to build all platforms automatically."
         ;;

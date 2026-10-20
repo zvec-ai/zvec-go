@@ -95,7 +95,7 @@ CGO_ENABLED=1 go build .
 ```
 
 Supported platforms: **Linux (x64, ARM64; glibc 2.28+ and musl/Alpine)**,
-**macOS (ARM64)**, **Windows (x64)**.
+**macOS (x64, ARM64)**, **Windows (x64, ARM64)**.
 
 On Linux, `download-libs` auto-detects musl-based systems (e.g. Alpine) and
 fetches the musl build; use `-libc glibc` or `-libc musl` to override.
@@ -444,8 +444,8 @@ The project provides convenient Makefile commands for managing build, test, and 
 ## Supported Platforms
 
 - Linux (x86_64, ARM64)
-- macOS (ARM64)
-- Windows (x86_64)
+- macOS (x86_64, ARM64)
+- Windows (x86_64, ARM64)
 
 ## License
 
