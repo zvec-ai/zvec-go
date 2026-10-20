@@ -88,6 +88,23 @@ jobs:
           pip install cmake==3.30.0 ninja==1.11.1
         shell: pwsh
 
+      # The windows-11-arm image ships an x86_64 MinGW-w64 toolchain in
+      # C:\mingw64\bin, and cgo's default CC=gcc resolves to it. That compiler
+      # cannot assemble Go's runtime/cgo/gcc_arm64.S, so install a native ARM64
+      # MinGW toolchain (aarch64-w64-windows-gnu) from the pre-installed MSYS2.
+      # Installing it up front keeps a pacman failure from wasting the C-API build.
+      - name: Install ARM64 MinGW toolchain (Windows ARM64)
+        if: runner.os == 'Windows' && matrix.msvc_arch == 'arm64'
+        run: |
+          & C:\msys64\usr\bin\pacman.exe -Sy --noconfirm
+          if ($LASTEXITCODE -ne 0) { throw "pacman -Sy failed with exit code $LASTEXITCODE" }
+          & C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-clang-aarch64-gcc
+          if ($LASTEXITCODE -ne 0) { throw "pacman -S failed with exit code $LASTEXITCODE" }
+          $mingwGcc = 'C:\msys64\clangarm64\bin\gcc.exe'
+          if (-not (Test-Path $mingwGcc)) { throw "ARM64 MinGW gcc not found at $mingwGcc" }
+          Write-Host "ARM64 MinGW target: $(& $mingwGcc -dumpmachine)"
+        shell: pwsh
+
       # --- Build C-API library ---
       - name: Build C-API library (Unix)
         if: runner.os != 'Windows'
@@ -125,6 +142,20 @@ jobs:
           echo "=== Built libraries ==="
           Get-ChildItem -Recurse zvec/build/lib/ -ErrorAction SilentlyContinue
           Get-ChildItem -Recurse zvec/build/bin/ -ErrorAction SilentlyContinue
+        shell: pwsh
+
+      # Point cgo at the ARM64 MinGW toolchain installed above. CC/CXX are
+      # exported only after the C-API build so CMake keeps selecting cl.exe
+      # (CMake honours $CC/$CXX). No PATH change is required: the driver
+      # locates its own assembler and linker, and the resulting binaries link
+      # the MinGW runtime statically.
+      - name: Use ARM64 MinGW toolchain for cgo (Windows ARM64)
+        if: runner.os == 'Windows' && matrix.msvc_arch == 'arm64'
+        run: |
+          $mingwBin = 'C:\msys64\clangarm64\bin'
+          echo "CC=$mingwBin\gcc.exe" >> $env:GITHUB_ENV
+          echo "CXX=$mingwBin\g++.exe" >> $env:GITHUB_ENV
+          Write-Host "cgo CC=$mingwBin\gcc.exe CXX=$mingwBin\g++.exe"
         shell: pwsh
 
       # --- Add library to PATH (Windows) ---
@@ -200,7 +231,8 @@ jobs:
           CGO_ENABLED: "1"
 
       - name: Run Go tests with race detector (Windows)
-        if: runner.os == 'Windows'
+        # Go's race detector is only supported on windows/amd64.
+        if: runner.os == 'Windows' && matrix.msvc_arch != 'arm64'
         run: go test -tags "source integration" -race -count=1 .
         shell: pwsh
         env:
@@ -339,6 +371,23 @@ jobs:
           fi
         shell: bash
 
+      # Vendor mode still compiles cgo bindings, so windows/arm64 needs the same
+      # native ARM64 MinGW toolchain as source mode: the image's default
+      # C:\mingw64\bin gcc is x86_64 and cannot assemble runtime/cgo/gcc_arm64.S.
+      - name: Install ARM64 MinGW toolchain for cgo (Windows ARM64)
+        if: runner.os == 'Windows' && matrix.lib_subdir == 'windows_arm64' && env.VENDOR_LIBS_AVAILABLE == 'true'
+        run: |
+          & C:\msys64\usr\bin\pacman.exe -Sy --noconfirm
+          if ($LASTEXITCODE -ne 0) { throw "pacman -Sy failed with exit code $LASTEXITCODE" }
+          & C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-clang-aarch64-gcc
+          if ($LASTEXITCODE -ne 0) { throw "pacman -S failed with exit code $LASTEXITCODE" }
+          $mingwBin = 'C:\msys64\clangarm64\bin'
+          if (-not (Test-Path "$mingwBin\gcc.exe")) { throw "ARM64 MinGW gcc not found in $mingwBin" }
+          Write-Host "ARM64 MinGW target: $(& "$mingwBin\gcc.exe" -dumpmachine)"
+          echo "CC=$mingwBin\gcc.exe" >> $env:GITHUB_ENV
+          echo "CXX=$mingwBin\g++.exe" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Run Go unit tests (vendor mode)
         if: env.VENDOR_LIBS_AVAILABLE == 'true'
         run: go test -tags integration -count=1 -v ./...
@@ -346,7 +395,8 @@ jobs:
           CGO_ENABLED: "1"
 
       - name: Run Go tests with race detector (vendor mode)
-        if: env.VENDOR_LIBS_AVAILABLE == 'true'
+        # Go's race detector is only supported on windows/amd64.
+        if: env.VENDOR_LIBS_AVAILABLE == 'true' && matrix.lib_subdir != 'windows_arm64'
         run: go test -tags integration -race -count=1 ./...
         env:
           CGO_ENABLED: "1"

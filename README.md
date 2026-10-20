@@ -447,6 +447,14 @@ The project provides convenient Makefile commands for managing build, test, and 
 - macOS (x86_64, ARM64)
 - Windows (x86_64, ARM64)
 
+On Windows ARM64, cgo requires an ARM64-native MinGW toolchain
+(`aarch64-w64-windows-gnu`). An x86_64 MinGW `gcc` — such as the one bundled with
+the GitHub `windows-11-arm` runner image — cannot build the bindings because it
+fails to assemble Go's `runtime/cgo/gcc_arm64.S`. Install one from MSYS2 with
+`pacman -S mingw-w64-clang-aarch64-gcc` and point `CC`/`CXX` at
+`C:\msys64\clangarm64\bin\gcc.exe` / `g++.exe`, or build in purego mode
+(`CGO_ENABLED=0`), which needs no C compiler.
+
 ## License
 
 Apache License 2.0

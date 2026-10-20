@@ -445,6 +445,12 @@ go run main.go
 - macOS (x86_64, ARM64)
 - Windows (x86_64, ARM64)
 
+在 Windows ARM64 上，cgo 需要 ARM64 原生的 MinGW 工具链（`aarch64-w64-windows-gnu`）。
+x86_64 的 MinGW `gcc`（例如 GitHub `windows-11-arm` runner 镜像自带的那个）无法编译本 SDK 的绑定，
+因为它无法汇编 Go 的 `runtime/cgo/gcc_arm64.S`。可通过 MSYS2 执行
+`pacman -S mingw-w64-clang-aarch64-gcc` 安装，并把 `CC`/`CXX` 指向
+`C:\msys64\clangarm64\bin\gcc.exe` / `g++.exe`；也可以使用 purego 模式（`CGO_ENABLED=0`），无需 C 编译器。
+
 ## 许可证
 
 Apache License 2.0

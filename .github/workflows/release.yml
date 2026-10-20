@@ -376,6 +376,25 @@ jobs:
           echo "✓ Go build succeeded with vendor libraries"
         shell: bash
 
+      # The Go build below compiles the cgo vendor bindings, and the
+      # windows-11-arm image's default C:\mingw64\bin gcc is x86_64 — it cannot
+      # assemble runtime/cgo/gcc_arm64.S. Install a native ARM64 MinGW toolchain
+      # (aarch64-w64-windows-gnu) from the pre-installed MSYS2 and point cgo at
+      # it. This runs after the C-API build so CMake keeps selecting cl.exe.
+      - name: Install ARM64 MinGW toolchain for cgo (Windows ARM64)
+        if: runner.os == 'Windows' && matrix.msvc_arch == 'arm64'
+        run: |
+          & C:\msys64\usr\bin\pacman.exe -Sy --noconfirm
+          if ($LASTEXITCODE -ne 0) { throw "pacman -Sy failed with exit code $LASTEXITCODE" }
+          & C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-clang-aarch64-gcc
+          if ($LASTEXITCODE -ne 0) { throw "pacman -S failed with exit code $LASTEXITCODE" }
+          $mingwBin = 'C:\msys64\clangarm64\bin'
+          if (-not (Test-Path "$mingwBin\gcc.exe")) { throw "ARM64 MinGW gcc not found in $mingwBin" }
+          Write-Host "ARM64 MinGW target: $(& "$mingwBin\gcc.exe" -dumpmachine)"
+          echo "CC=$mingwBin\gcc.exe" >> $env:GITHUB_ENV
+          echo "CXX=$mingwBin\g++.exe" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Verify Go build with vendor libs (Windows)
         if: runner.os == 'Windows'
         run: |
