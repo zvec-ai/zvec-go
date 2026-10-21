@@ -64,11 +64,11 @@ cd zvec-go
 
 # 2. Download pre-built library for your platform
 #    (downloads from GitHub Releases, extracts to lib/)
-go run ./cmd/download-libs -version v0.6.0
+go run ./cmd/download-libs -version v0.8.0
 
 # Use in your project with replace directive
 # In your project's go.mod:
-#   require github.com/zvec-ai/zvec-go v0.6.0
+#   require github.com/zvec-ai/zvec-go v0.8.0
 #   replace github.com/zvec-ai/zvec-go => /path/to/zvec-go
 
 # 3a. Build with cgo (default when cgo is enabled)
@@ -85,7 +85,7 @@ CGO_ENABLED=0 go build .
 go get github.com/zvec-ai/zvec-go
 
 # 2. Download pre-built libraries manually from GitHub Releases:
-#    https://github.com/zvec-ai/zvec-go/releases/download/v0.6.0/zvec-libs-darwin-arm64.tar.gz
+#    https://github.com/zvec-ai/zvec-go/releases/download/v0.8.0/zvec-libs-darwin-arm64.tar.gz
 #    Extract to your project's lib/ directory
 
 # 3. Build with cgo
@@ -95,16 +95,12 @@ CGO_ENABLED=1 go build .
 ```
 
 Supported platforms: **Linux (x64, ARM64; glibc 2.28+ and musl/Alpine)**,
-**macOS (ARM64)**, **Windows (x64)**.
+**macOS (x64, ARM64)**, **Windows (x64, ARM64)**.
 
 On Linux, `download-libs` auto-detects musl-based systems (e.g. Alpine) and
 fetches the musl build; use `-libc glibc` or `-libc musl` to override.
 The Linux glibc builds target glibc 2.28 (manylinux_2_28), matching the
 upstream zvec prebuilt SDKs.
-
-Each pre-built archive also ships the jieba dictionaries under
-`lib/data/jieba_dict/` (needed by the `jieba` FTS tokenizer). `Initialize()`
-locates them automatically — see [FTS](#fts-full-text-search) below.
 
 ### Mode 2: Source Mode (Build from Source)
 
@@ -220,11 +216,6 @@ func main() {
 | `GetVersionMinor()` | Get the minor version number |
 | `GetVersionPatch()` | Get the patch version number |
 | `CheckVersion(major, minor, patch)` | Check if the version is compatible |
-| `FindJiebaDictDir()` | Locate the bundled jieba dictionary directory |
-| `SetDefaultJiebaDictDir(dir)` | Set the process-wide default jieba dict directory |
-| `GetDefaultJiebaDictDir()` | Get the process-wide default jieba dict directory |
-| `ConfigData.SetJiebaDictDir(dir)` | Set the jieba dict directory in a config |
-| `ConfigData.GetJiebaDictDir()` | Get the jieba dict directory from a config |
 
 ### Schema & Index
 
@@ -329,13 +320,12 @@ func main() {
 | `SearchQuery.SetFTS(fts)` | Attach FTS payload to a search query |
 | `SearchQuery.SetFTSParams(params)` | Set FTS query parameters |
 
-The `jieba` tokenizer (for Chinese text) needs dictionary files
-(`jieba.dict.utf8` + `hmm_model.utf8`). The pre-built archives ship them under
-`lib/data/jieba_dict/`, and `Initialize()` automatically locates and registers
-them via `SetDefaultJiebaDictDir()`, so jieba-based FTS works out of the box.
-Dictionary resolution priority: per-field `jieba_dict_dir` extra param >
-`ZVEC_JIEBA_DICT_DIR` env var > the process-wide default. Set
-`ZVEC_DISABLE_AUTO_JIEBA_DICT=1` to disable the auto-registration.
+The `jieba` tokenizer (for Chinese text) embeds its dictionary files
+(`jieba.dict.utf8` + `hmm_model.utf8`) in the C-API library since zvec
+v0.8.0, so jieba-based FTS works out of the box with no extra data files.
+To use custom dictionaries instead, set the per-field `jieba_dict_dir` extra
+param or the `ZVEC_JIEBA_DICT_DIR` env var; the field value wins over the
+env var, which wins over the embedded defaults.
 
 ### Multi-Query & Reranking
 
@@ -454,8 +444,16 @@ The project provides convenient Makefile commands for managing build, test, and 
 ## Supported Platforms
 
 - Linux (x86_64, ARM64)
-- macOS (ARM64)
-- Windows (x86_64)
+- macOS (x86_64, ARM64)
+- Windows (x86_64, ARM64)
+
+On Windows ARM64, cgo requires an ARM64-native MinGW toolchain
+(`aarch64-w64-windows-gnu`). An x86_64 MinGW `gcc` — such as the one bundled with
+the GitHub `windows-11-arm` runner image — cannot build the bindings because it
+fails to assemble Go's `runtime/cgo/gcc_arm64.S`. Install one from MSYS2 with
+`pacman -S mingw-w64-clang-aarch64-gcc` and point `CC`/`CXX` at
+`C:\msys64\clangarm64\bin\gcc.exe` / `g++.exe`, or build in purego mode
+(`CGO_ENABLED=0`), which needs no C compiler.
 
 ## License
 

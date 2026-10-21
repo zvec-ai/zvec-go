@@ -29,6 +29,7 @@ const (
 	DataTypeVectorInt4       DataType = 25
 	DataTypeVectorInt8       DataType = 26
 	DataTypeVectorInt16      DataType = 27
+	DataTypeVectorUint8      DataType = 28
 	DataTypeSparseVectorFP16 DataType = 30
 	DataTypeSparseVectorFP32 DataType = 31
 	DataTypeArrayBinary      DataType = 40

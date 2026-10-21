@@ -71,26 +71,6 @@ sync_header() {
     print_ok "Header synced to lib/include/zvec/c_api.h"
 }
 
-# --- Sync jieba dictionaries -------------------------------------------------
-
-sync_dicts() {
-    print_header "Syncing jieba dictionaries"
-    local src_dir dst="$REPO_ROOT/lib/data/jieba_dict"
-
-    # cppjieba is vendored under thirdparty/ with a versioned directory name
-    # (e.g. cppjieba-5.6.7); pick the first checkout that carries the dicts.
-    src_dir="$(ls -d "$REPO_ROOT"/zvec/thirdparty/cppjieba/cppjieba-*/dict 2>/dev/null | head -1)"
-    if [[ -z "$src_dir" || ! -f "$src_dir/jieba.dict.utf8" ]]; then
-        print_err "jieba dictionaries not found under zvec/thirdparty/cppjieba/"
-        print_err "Make sure the zvec submodule is initialized: git submodule update --init --recursive"
-        exit 1
-    fi
-
-    mkdir -p "$dst"
-    cp "$src_dir/jieba.dict.utf8" "$src_dir/hmm_model.utf8" "$dst/"
-    print_ok "Dictionaries synced to lib/data/jieba_dict/ ($(du -sh "$dst" | cut -f1))"
-}
-
 # --- Build and package ------------------------------------------------------
 
 build_and_package() {
@@ -171,15 +151,11 @@ build_and_package() {
     # Sync header
     sync_header
 
-    # Sync jieba dictionaries (needed by the `jieba` FTS tokenizer)
-    sync_dicts
-
     # Summary
     print_header "Package complete"
     echo "  Platform: $platform"
     echo "  Library:  lib/$platform/$(basename "$built_lib") ($(du -h "$target_dir/$(basename "$built_lib")" | cut -f1))"
     echo "  Header:   lib/include/zvec/c_api.h"
-    echo "  Dicts:    lib/data/jieba_dict/"
     echo ""
     echo "  To verify: go build -tags integration ./..."
     echo "  To commit: git add lib/ && git commit -m 'chore: update vendor libs for $platform'"
@@ -191,15 +167,14 @@ case "${1:-}" in
     --sync-header)
         sync_header
         ;;
-    --sync-dicts)
-        sync_dicts
-        ;;
     --all)
         echo "To package libraries for all platforms, run this script on each target:"
         echo ""
+        echo "  macOS x64:    ./scripts/package-libs.sh  (on an Intel Mac)"
         echo "  macOS ARM64:  ./scripts/package-libs.sh"
         echo "  Linux x64:    ./scripts/package-libs.sh  (on linux-x64 machine)"
         echo "  Linux ARM64:  ./scripts/package-libs.sh  (on linux-arm64 machine)"
+        echo "  Windows ARM64: ./scripts/package-libs.sh (on windows-11-arm machine)"
         echo ""
         echo "Or use the CI workflow to build all platforms automatically."
         ;;
@@ -210,7 +185,6 @@ case "${1:-}" in
         echo "  (none)          Build and package for current platform"
         echo "  --all           Show instructions for all platforms"
         echo "  --sync-header   Only sync the C-API header file"
-        echo "  --sync-dicts    Only sync the jieba dictionary files"
         echo "  -h, --help      Show this help message"
         ;;
     *)

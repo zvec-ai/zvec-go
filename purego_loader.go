@@ -18,7 +18,7 @@ import (
 const (
 	zvecLibraryPathEnv = "ZVEC_LIBRARY_PATH"
 	puregoABIMajor     = 0
-	puregoABIMinor     = 7
+	puregoABIMinor     = 8
 	puregoMinABIPatch  = 0
 )
 
@@ -59,10 +59,6 @@ type zvecPuregoAPI struct {
 	configDataGetFTSBruteForceRatio  func(unsafe.Pointer) float32
 	configDataSetOptimizeThreadCount func(unsafe.Pointer, uint32) int32
 	configDataGetOptimizeThreadCount func(unsafe.Pointer) uint32
-	configDataSetJiebaDictDir        func(unsafe.Pointer, unsafe.Pointer) int32
-	configDataGetJiebaDictDir        func(unsafe.Pointer) unsafe.Pointer
-	setDefaultJiebaDictDir           func(unsafe.Pointer)
-	getDefaultJiebaDictDir           func() unsafe.Pointer
 
 	indexParamsCreate                func(uint32) unsafe.Pointer
 	indexParamsDestroy               func(unsafe.Pointer)
@@ -404,10 +400,6 @@ func registerPuregoSymbols(handle uintptr) (err error) {
 	register(&puregoFns.configDataGetFTSBruteForceRatio, "zvec_config_data_get_fts_brute_force_by_keys_ratio")
 	register(&puregoFns.configDataSetOptimizeThreadCount, "zvec_config_data_set_optimize_thread_count")
 	register(&puregoFns.configDataGetOptimizeThreadCount, "zvec_config_data_get_optimize_thread_count")
-	register(&puregoFns.configDataSetJiebaDictDir, "zvec_config_data_set_jieba_dict_dir")
-	register(&puregoFns.configDataGetJiebaDictDir, "zvec_config_data_get_jieba_dict_dir")
-	register(&puregoFns.setDefaultJiebaDictDir, "zvec_set_default_jieba_dict_dir")
-	register(&puregoFns.getDefaultJiebaDictDir, "zvec_get_default_jieba_dict_dir")
 
 	register(&puregoFns.indexParamsCreate, "zvec_index_params_create")
 	register(&puregoFns.indexParamsDestroy, "zvec_index_params_destroy")

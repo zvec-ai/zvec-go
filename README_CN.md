@@ -64,11 +64,11 @@ cd zvec-go
 
 # 2. 下载当前平台的预编译库
 #    （从 GitHub Releases 下载，解压到 lib/ 目录）
-go run ./cmd/download-libs -version v0.6.0
+go run ./cmd/download-libs -version v0.8.0
 
 # 在您的项目中使用 replace 指令
 # 在您项目的 go.mod 中：
-#   require github.com/zvec-ai/zvec-go v0.6.0
+#   require github.com/zvec-ai/zvec-go v0.8.0
 #   replace github.com/zvec-ai/zvec-go => /path/to/zvec-go
 
 # 3a. 使用 cgo 构建（启用 cgo 时的默认方式）
@@ -85,7 +85,7 @@ CGO_ENABLED=0 go build .
 go get github.com/zvec-ai/zvec-go
 
 # 2. 手动从 GitHub Releases 下载预编译库：
-#    https://github.com/zvec-ai/zvec-go/releases/download/v0.6.0/zvec-libs-darwin-arm64.tar.gz
+#    https://github.com/zvec-ai/zvec-go/releases/download/v0.8.0/zvec-libs-darwin-arm64.tar.gz
 #    解压到您项目的 lib/ 目录
 
 # 3. 使用 cgo 构建
@@ -95,15 +95,11 @@ CGO_ENABLED=1 go build .
 ```
 
 支持平台：**Linux (x64, ARM64；glibc 2.28+ 及 musl/Alpine)**、
-**macOS (ARM64)** 和 **Windows (x64)**。
+**macOS (x64, ARM64)** 和 **Windows (x64, ARM64)**。
 
 在 Linux 上，`download-libs` 会自动检测 musl 系统（如 Alpine）并下载对应的
 musl 版本；也可用 `-libc glibc` 或 `-libc musl` 手动指定。Linux glibc 版本
 基于 glibc 2.28（manylinux_2_28）构建，与上游 zvec 预编译 SDK 保持一致。
-
-每个预编译包还会在 `lib/data/jieba_dict/` 下附带 jieba 词典（`jieba` FTS
-分词器需要）。`Initialize()` 会自动定位并注册词典，无需手动配置，详见下文
-[全文搜索 (FTS)](#全文搜索-fts)。
 
 ### 模式 2：Source 模式（从源码构建）
 
@@ -219,11 +215,6 @@ func main() {
 | `GetVersionMinor()` | 获取次版本号 |
 | `GetVersionPatch()` | 获取补丁版本号 |
 | `CheckVersion(major, minor, patch)` | 检查版本是否兼容 |
-| `FindJiebaDictDir()` | 定位随库附带的 jieba 词典目录 |
-| `SetDefaultJiebaDictDir(dir)` | 设置进程级默认 jieba 词典目录 |
-| `GetDefaultJiebaDictDir()` | 获取进程级默认 jieba 词典目录 |
-| `ConfigData.SetJiebaDictDir(dir)` | 在配置中设置 jieba 词典目录 |
-| `ConfigData.GetJiebaDictDir()` | 获取配置中的 jieba 词典目录 |
 
 ### Schema 与索引
 
@@ -328,12 +319,11 @@ func main() {
 | `SearchQuery.SetFTS(fts)` | 在搜索查询上附加 FTS 载荷 |
 | `SearchQuery.SetFTSParams(params)` | 设置 FTS 查询参数 |
 
-`jieba` 分词器（用于中文文本）需要词典文件（`jieba.dict.utf8` +
-`hmm_model.utf8`）。预编译包已在 `lib/data/jieba_dict/` 下附带词典，
-`Initialize()` 会自动定位并通过 `SetDefaultJiebaDictDir()` 注册，因此基于
-jieba 的全文搜索开箱即用。词典解析优先级：字段级 `jieba_dict_dir` 参数 >
-`ZVEC_JIEBA_DICT_DIR` 环境变量 > 进程级默认值。设置
-`ZVEC_DISABLE_AUTO_JIEBA_DICT=1` 可关闭自动注册。
+`jieba` 分词器（用于中文文本）自 zvec v0.8.0 起已将词典文件
+（`jieba.dict.utf8` + `hmm_model.utf8`）内嵌进 C-API 库，因此基于 jieba 的
+全文搜索开箱即用，无需额外的数据文件。如需使用自定义词典，可设置字段级
+`jieba_dict_dir` 参数或 `ZVEC_JIEBA_DICT_DIR` 环境变量；优先级为：字段级
+参数 > 环境变量 > 内嵌默认词典。
 
 ### 多路查询与重排序
 
@@ -452,8 +442,14 @@ go run main.go
 ## 支持平台
 
 - Linux (x86_64, ARM64)
-- macOS (ARM64)
-- Windows (x86_64)
+- macOS (x86_64, ARM64)
+- Windows (x86_64, ARM64)
+
+在 Windows ARM64 上，cgo 需要 ARM64 原生的 MinGW 工具链（`aarch64-w64-windows-gnu`）。
+x86_64 的 MinGW `gcc`（例如 GitHub `windows-11-arm` runner 镜像自带的那个）无法编译本 SDK 的绑定，
+因为它无法汇编 Go 的 `runtime/cgo/gcc_arm64.S`。可通过 MSYS2 执行
+`pacman -S mingw-w64-clang-aarch64-gcc` 安装，并把 `CC`/`CXX` 指向
+`C:\msys64\clangarm64\bin\gcc.exe` / `g++.exe`；也可以使用 purego 模式（`CGO_ENABLED=0`），无需 C 编译器。
 
 ## 许可证
 

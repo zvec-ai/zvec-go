@@ -26,10 +26,9 @@ zvec-go/
 ├── schema.go              # IndexParams, FieldSchema, CollectionSchema
 ├── types.go               # Go enum types (DataType, IndexType, MetricType, etc.)
 ├── errors.go              # Error handling, C→Go error conversion
-├── jieba_dict.go          # jieba dict auto-discovery for the `jieba` FTS tokenizer
 ├── scripts/
 │   └── sync-zvec.sh       # Submodule sync with C-API change detection
-│   └── package-libs.sh    # Build & package vendor libs + jieba dicts into lib/
+│   └── package-libs.sh    # Build & package vendor libs + header into lib/
 ├── examples/              # Usage examples
 ├── Makefile               # Build, test, lint automation
 └── .github/

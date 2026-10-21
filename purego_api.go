@@ -144,6 +144,7 @@ const (
 	DataTypeVectorInt4       DataType = 25
 	DataTypeVectorInt8       DataType = 26
 	DataTypeVectorInt16      DataType = 27
+	DataTypeVectorUint8      DataType = 28
 	DataTypeSparseVectorFP16 DataType = 30
 	DataTypeSparseVectorFP32 DataType = 31
 	DataTypeArrayBinary      DataType = 40
@@ -336,11 +337,6 @@ func (d DocOperator) String() string {
 }
 
 // Initialize initializes the zvec library with optional configuration.
-//
-// When no process-wide default jieba dict directory has been set, Initialize
-// tries to locate the bundled jieba dictionaries (see FindJiebaDictDir) and
-// registers them via SetDefaultJiebaDictDir, so the `jieba` FTS tokenizer
-// works out of the box. Set ZVEC_DISABLE_AUTO_JIEBA_DICT=1 to opt out.
 func Initialize(config *ConfigData) error {
 	api, err := puregoAPI()
 	if err != nil {
@@ -350,7 +346,6 @@ func Initialize(config *ConfigData) error {
 	if config != nil {
 		cConfig = config.handle
 	}
-	ensureDefaultJiebaDictDir()
 	defer lockErrorThread()()
 	return toError(api.initialize(cConfig))
 }
@@ -523,29 +518,6 @@ func (c *ConfigData) GetFTSBruteForceByKeysRatio() float32 {
 	return api.configDataGetFTSBruteForceRatio(c.handle)
 }
 
-func (c *ConfigData) SetJiebaDictDir(dir string) error {
-	api, err := puregoAPI()
-	if err != nil {
-		return err
-	}
-	if c == nil || c.handle == nil {
-		return invalidArgumentError("config data is nil")
-	}
-	dirBuf, cDir := optionalCString(dir)
-	defer lockErrorThread()()
-	err = toError(api.configDataSetJiebaDictDir(c.handle, cDir))
-	runtime.KeepAlive(dirBuf)
-	return err
-}
-
-func (c *ConfigData) GetJiebaDictDir() string {
-	api, err := puregoAPI()
-	if err != nil || c == nil || c.handle == nil {
-		return ""
-	}
-	return cStringFromPointer(api.configDataGetJiebaDictDir(c.handle))
-}
-
 func (c *ConfigData) SetConsoleLog(level LogLevel) error {
 	api, err := puregoAPI()
 	if err != nil {
@@ -594,24 +566,6 @@ func (c *ConfigData) SetFileLog(level LogLevel, dir, basename string, fileSizeMB
 		api.configLogDestroy(logConfig)
 	}
 	return err
-}
-
-func SetDefaultJiebaDictDir(dir string) {
-	api, err := puregoAPI()
-	if err != nil {
-		return
-	}
-	dirBuf, cDir := optionalCString(dir)
-	api.setDefaultJiebaDictDir(cDir)
-	runtime.KeepAlive(dirBuf)
-}
-
-func GetDefaultJiebaDictDir() string {
-	api, err := puregoAPI()
-	if err != nil {
-		return ""
-	}
-	return cStringFromPointer(api.getDefaultJiebaDictDir())
 }
 
 // IndexParams wraps zvec_index_params_t.
