@@ -409,7 +409,7 @@ This repository uses a **git submodule** to track the [zvec](https://github.com/
 ./scripts/sync-zvec.sh
 
 # Update to a specific tag
-./scripts/sync-zvec.sh v0.7.0
+./scripts/sync-zvec.sh v0.8.0
 ```
 
 [Dependabot](https://docs.github.com/en/code-security/dependabot) is also configured to automatically create PRs when the zvec submodule has new commits.

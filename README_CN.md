@@ -407,7 +407,7 @@ go run main.go
 ./scripts/sync-zvec.sh
 
 # 更新到指定的标签版本
-./scripts/sync-zvec.sh v0.7.0
+./scripts/sync-zvec.sh v0.8.0
 ```
 
 同时配置了 [Dependabot](https://docs.github.com/en/code-security/dependabot)，当 zvec submodule 有新的提交时会自动创建 PR。
