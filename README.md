@@ -64,11 +64,11 @@ cd zvec-go
 
 # 2. Download pre-built library for your platform
 #    (downloads from GitHub Releases, extracts to lib/)
-go run ./cmd/download-libs -version v0.6.0
+go run ./cmd/download-libs -version v0.8.0
 
 # Use in your project with replace directive
 # In your project's go.mod:
-#   require github.com/zvec-ai/zvec-go v0.6.0
+#   require github.com/zvec-ai/zvec-go v0.8.0
 #   replace github.com/zvec-ai/zvec-go => /path/to/zvec-go
 
 # 3a. Build with cgo (default when cgo is enabled)
@@ -85,7 +85,7 @@ CGO_ENABLED=0 go build .
 go get github.com/zvec-ai/zvec-go
 
 # 2. Download pre-built libraries manually from GitHub Releases:
-#    https://github.com/zvec-ai/zvec-go/releases/download/v0.6.0/zvec-libs-darwin-arm64.tar.gz
+#    https://github.com/zvec-ai/zvec-go/releases/download/v0.8.0/zvec-libs-darwin-arm64.tar.gz
 #    Extract to your project's lib/ directory
 
 # 3. Build with cgo
