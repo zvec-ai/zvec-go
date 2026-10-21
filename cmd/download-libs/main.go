@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	go run ./cmd/download-libs [-version v0.6.0] [-dest ./lib] [-libc auto]
+//	go run ./cmd/download-libs [-version v0.8.0] [-dest ./lib] [-libc auto]
 //
 // If -version is not specified, it queries the GitHub Releases API to fetch the
 // latest published release tag.
@@ -61,7 +61,7 @@ func main() {
 	var dest string
 	var libc string
 
-	flag.StringVar(&version, "version", "", "Library version to download (e.g. v0.6.0). Defaults to the latest GitHub release.")
+	flag.StringVar(&version, "version", "", "Library version to download (e.g. v0.8.0). Defaults to the latest GitHub release.")
 	flag.StringVar(&dest, "dest", "", "Destination directory for lib/. Defaults to ./lib relative to module root.")
 	flag.StringVar(&libc, "libc", "auto", "Linux libc variant: auto, glibc, or musl (auto-detects musl/Alpine systems).")
 	flag.Parse()
@@ -79,7 +79,7 @@ func main() {
 		fmt.Println("No -version flag provided; querying latest release from GitHub...")
 		version, err = fetchLatestReleaseTag()
 		if err != nil {
-			fatalf("Cannot determine latest release: %v\nUsage: go run ./cmd/download-libs -version v0.6.0", err)
+			fatalf("Cannot determine latest release: %v\nUsage: go run ./cmd/download-libs -version v0.8.0", err)
 		}
 		fmt.Printf("  Latest release: %s\n", version)
 	}
@@ -197,7 +197,7 @@ func findModuleRoot() (string, error) {
 }
 
 // fetchLatestReleaseTag queries the GitHub Releases API and returns the
-// tag name of the latest published release (e.g. "v0.6.0").
+// tag name of the latest published release (e.g. "v0.8.0").
 func fetchLatestReleaseTag() (string, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodGet, latestAPIURL, nil)
